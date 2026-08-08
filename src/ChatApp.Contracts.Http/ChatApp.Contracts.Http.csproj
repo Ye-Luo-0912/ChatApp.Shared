@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ChatApp.Contracts.Http</PackageId>
+    <AssemblyName>ChatApp.Contracts.Http</AssemblyName>
+    <RootNamespace>ChatApp.Contracts.Http</RootNamespace>
+    <Title>ChatApp HTTP Contracts</Title>
+    <Description>BCL-only HTTP request and response contracts shared by ChatApp clients and servers.</Description>
+    <PackageTags>ChatApp;contracts;http;json</PackageTags>
+  </PropertyGroup>
+</Project>

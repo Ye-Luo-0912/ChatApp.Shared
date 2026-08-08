@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ChatApp.Auth.Contracts</PackageId>
+    <AssemblyName>ChatApp.Auth.Contracts</AssemblyName>
+    <RootNamespace>ChatApp.Auth.Contracts</RootNamespace>
+    <Title>ChatApp authentication contracts</Title>
+    <PackageTags>ChatApp;contracts;authentication;cache</PackageTags>
+    <Description>BCL-only authentication wire and cache contracts for ChatApp.</Description>
+  </PropertyGroup>
+</Project>

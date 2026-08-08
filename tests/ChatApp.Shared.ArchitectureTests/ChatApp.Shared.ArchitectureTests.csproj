@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ChatApp.Shared.ArchitectureTests</PackageId>
+    <AssemblyName>ChatApp.Shared.ArchitectureTests</AssemblyName>
+    <RootNamespace>ChatApp.Shared.ArchitectureTests</RootNamespace>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ChatApp.Auth.Contracts\ChatApp.Auth.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\ChatApp.Contracts.Http\ChatApp.Contracts.Http.csproj" />
+    <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp\ChatApp.Protocol.Tcp.csproj" />
+    <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp.Json\ChatApp.Protocol.Tcp.Json.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/ChatApp.Auth.Contracts/ChatApp.Auth.Contracts.csproj" />
+  <Project Path="src/ChatApp.Contracts.Http/ChatApp.Contracts.Http.csproj" />
+  <Project Path="src/ChatApp.Protocol.Tcp/ChatApp.Protocol.Tcp.csproj" />
+  <Project Path="src/ChatApp.Protocol.Tcp.Json/ChatApp.Protocol.Tcp.Json.csproj" />
+  <Project Path="tests/ChatApp.Shared.ArchitectureTests/ChatApp.Shared.ArchitectureTests.csproj" />
+</Solution>

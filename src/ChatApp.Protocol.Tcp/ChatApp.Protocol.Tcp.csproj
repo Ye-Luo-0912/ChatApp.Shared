@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ChatApp.Protocol.Tcp</PackageId>
+    <AssemblyName>ChatApp.Protocol.Tcp</AssemblyName>
+    <RootNamespace>ChatApp.Shared.Protocol.Tcp</RootNamespace>
+    <Title>ChatApp TCP protocol contracts</Title>
+    <PackageTags>ChatApp;contracts;TCP;protocol</PackageTags>
+    <Description>BCL-only TCP framing and wire contracts for ChatApp.</Description>
+  </PropertyGroup>
+</Project>
