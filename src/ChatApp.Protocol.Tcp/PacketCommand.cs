@@ -83,6 +83,8 @@ public enum PacketCommand : ushort
     AttachmentDownloadAuthorizeResponse = 168,
     MessageReadReceiptQueryRequest = 169,
     MessageReadReceiptQueryResponse = 170,
+    DissolveGroupRequest = 171,
+    DissolveGroupResponse = 172,
     Error = 500,
     HeartbeatAcknowledgement = 1000
 }

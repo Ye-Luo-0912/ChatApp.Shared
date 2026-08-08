@@ -120,6 +120,8 @@ public sealed class TcpProtocolValueStabilityTests
             AttachmentDownloadAuthorizeResponse=168
             MessageReadReceiptQueryRequest=169
             MessageReadReceiptQueryResponse=170
+            DissolveGroupRequest=171
+            DissolveGroupResponse=172
             Error=500
             HeartbeatAcknowledgement=1000
             """.Split('\n').Select(line => line.TrimEnd('\r')));
