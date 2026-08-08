@@ -6,12 +6,12 @@
 
 | 包 | 版本 | 职责 | 内部依赖 |
 | --- | --- | --- | --- |
-| `ChatApp.Auth.Contracts` | `0.2.0` | AccessToken Redis 键、缓存值 schema、账户状态与 JSON metadata | 无 |
-| `ChatApp.Contracts.Http` | `0.2.0` | Auth、好友、附件、会话 HTTP wire DTO 与 JSON metadata | 无 |
-| `ChatApp.Protocol.Tcp` | `0.2.0` | TCP 帧常量、命令号、能力位、错误码与握手/恢复 DTO | 无 |
-| `ChatApp.Protocol.Tcp.Json` | `0.2.0` | TCP DTO 的 source-generated JSON metadata 与统一序列化策略 | `ChatApp.Protocol.Tcp` |
+| `ChatApp.Auth.Contracts` | `0.3.0` | AccessToken Redis 键、缓存值 schema、账户状态与 JSON metadata | 无 |
+| `ChatApp.Contracts.Http` | `0.3.0` | Auth、好友、附件、会话 HTTP wire DTO 与 JSON metadata | 无 |
+| `ChatApp.Protocol.Tcp` | `0.3.0` | TCP 帧常量、命令号、能力位、错误码与握手/恢复 DTO | 无 |
+| `ChatApp.Protocol.Tcp.Json` | `0.3.0` | TCP DTO 的 source-generated JSON metadata 与统一序列化策略 | `ChatApp.Protocol.Tcp` |
 
-这些包均为 .NET 10、BCL-only 包，并作为本轮完整契约抽取统一发布 `0.2.0`。
+这些包均为 .NET 10、BCL-only 包，并作为本轮完整契约抽取统一发布 `0.3.0`。
 
 当前没有 `ChatApp.Shared.Primitives` 项目：尚无两个以上语义稳定的消费者，暂不建立 speculative primitives 包。未来满足共享门槛时再以真实类型、消费者矩阵和兼容性测试共同引入，不保留空 marker。
 

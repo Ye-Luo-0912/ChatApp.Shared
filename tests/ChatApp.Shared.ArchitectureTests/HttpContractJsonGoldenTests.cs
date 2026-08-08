@@ -110,6 +110,57 @@ public sealed class HttpContractJsonGoldenTests
     }
 
     [Fact]
+    public void AttachmentPresign_Sha256DedupFields_AreOnTheWireAndBackwardCompatible()
+    {
+        var request = new AttachmentPresignRequest
+        {
+            ContentType = "image/png",
+            ContentLength = 4096,
+            OriginalName = "photo.png",
+            ClientAttachmentId = "ca-1",
+            Sha256 = new string('a', 64)
+        };
+
+        string requestJson = JsonSerializer.Serialize(
+            request,
+            HttpContractsJsonSerializerContext.Default.AttachmentPresignRequest);
+
+        Assert.Equal(
+            "{\"contentType\":\"image/png\",\"contentLength\":4096,\"originalName\":\"photo.png\",\"clientAttachmentId\":\"ca-1\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+            requestJson);
+
+        var deduplicated = new AttachmentPresignResponse
+        {
+            AttachmentId = "a1",
+            UploadUrl = string.Empty,
+            DownloadPath = "/api/attachments/a1/download",
+            ObjectKey = "content/a1",
+            Ticket = "ticket",
+            ExpiresAt = new DateTimeOffset(2026, 8, 5, 3, 0, 0, TimeSpan.Zero),
+            Deduplicated = true
+        };
+
+        string dedupJson = JsonSerializer.Serialize(
+            deduplicated,
+            HttpContractsJsonSerializerContext.Default.AttachmentPresignResponse);
+
+        Assert.Contains("\"deduplicated\":true", dedupJson);
+
+        // 旧服务端 wire 无这两个字段：缺省值必须向后兼容（null / false）。
+        AttachmentPresignRequest? legacyRequest = JsonSerializer.Deserialize(
+            """{"contentType":"text/plain","contentLength":10}""",
+            HttpContractsJsonSerializerContext.Default.AttachmentPresignRequest);
+        Assert.NotNull(legacyRequest);
+        Assert.Null(legacyRequest!.Sha256);
+
+        AttachmentPresignResponse? legacyResponse = JsonSerializer.Deserialize(
+            """{"attachmentId":"a1","uploadUrl":"u","downloadPath":"d","objectKey":"k","ticket":"t","expiresAt":"2026-08-05T03:00:00+00:00"}""",
+            HttpContractsJsonSerializerContext.Default.AttachmentPresignResponse);
+        Assert.NotNull(legacyResponse);
+        Assert.False(legacyResponse!.Deduplicated);
+    }
+
+    [Fact]
     public void SessionList_UsesSharedWireDtoWithoutPresentationFields()
     {
         List<SessionDevice>? sessions = JsonSerializer.Deserialize(

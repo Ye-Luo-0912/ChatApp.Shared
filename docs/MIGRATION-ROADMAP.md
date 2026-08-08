@@ -1,13 +1,13 @@
 # 共享契约迁移状态与发布路线
 
-## 已完成状态（Shared 0.2.0 / Realtime 2.x）
+## 已完成状态（Shared 0.3.0 / Realtime 2.x）
 
 | 边界 | 唯一契约源 | 消费者 | 完成状态 |
 | --- | --- | --- | --- |
-| AccessToken Redis key/value | `ChatApp.Auth.Contracts` `0.2.0` | Server writer、TCP Gateway reader | 两端直接使用同一缓存 schema；Server 的领域投影通过显式 mapper 转为共享记录 |
-| Auth、好友、附件、会话 HTTP DTO | `ChatApp.Contracts.Http` `0.2.0` | Client、Server Host | 两端直接使用共享 wire DTO；Server Core 保持 BCL-only，并在 Host 边界显式映射 |
-| TCP 帧头、`PacketCommand`、握手/恢复 DTO、能力位、错误码 | `ChatApp.Protocol.Tcp` `0.2.0` | Client、TCP Gateway | 本地重复命令枚举已删除；golden bytes、帧编解码和握手契约测试守卫兼容性 |
-| TCP JSON metadata | `ChatApp.Protocol.Tcp.Json` `0.2.0` | TCP Gateway、协议兼容测试 | 提供统一 source-generated JSON 入口；消费者自有 context 通过交叉序列化测试校验 |
+| AccessToken Redis key/value | `ChatApp.Auth.Contracts` `0.3.0` | Server writer、TCP Gateway reader | 两端直接使用同一缓存 schema；Server 的领域投影通过显式 mapper 转为共享记录 |
+| Auth、好友、附件、会话 HTTP DTO | `ChatApp.Contracts.Http` `0.3.0` | Client、Server Host | 两端直接使用共享 wire DTO；Server Core 保持 BCL-only，并在 Host 边界显式映射 |
+| TCP 帧头、`PacketCommand`、握手/恢复 DTO、能力位、错误码 | `ChatApp.Protocol.Tcp` `0.3.0` | Client、TCP Gateway | 本地重复命令枚举已删除；golden bytes、帧编解码和握手契约测试守卫兼容性 |
+| TCP JSON metadata | `ChatApp.Protocol.Tcp.Json` `0.3.0` | TCP Gateway、协议兼容测试 | 提供统一 source-generated JSON 入口；消费者自有 context 通过交叉序列化测试校验 |
 | Realtime DTO 与集成接口 | `ChatApp.Realtime.Contracts` `2.3.0`、`ChatApp.Realtime.Integration` `3.0.0` | RealtimeServices、Server、TCP Gateway | Contracts 延续既有 2.x 谱系；Integration 因公开 Outbox 类型迁出而按 breaking change 升至 3.x；消费者使用包引用，不依赖 sibling 源码目录 |
 | Realtime EF Outbox 模型与映射 | `ChatApp.Realtime.Outbox.EntityFrameworkCore` `1.0.0` | Server | 从 NATS Integration 包剥离；只有需要 EF Outbox 的宿主引用，Gateway/PushWorker 不再传递依赖 EF Core |
 | 通用基础类型 | 暂不建立项目 | 暂无两个以上语义稳定消费者 | 已删除空 `Primitives` marker，避免无实际类型的预设依赖 |
@@ -30,7 +30,7 @@ Client 与 Gateway 已删除本地 `PacketCommand` 枚举。源码中的 alias �
 
 ## 发布与部署顺序
 
-1. Shared CI 对四个 `0.2.0` 包执行一次构建、测试、打包并产出 SHA-256 清单；Realtime 发布流水线分别产出 `Contracts 2.3.0`、`Integration 3.0.0` 与 `Outbox.EntityFrameworkCore 1.0.0`。审核后只把这些不可变候选发布到内部 NuGet feed；仓库内 `packages/` 只作为离线、CI 和迁移期的可复现来源。
+1. Shared CI 对四个 `0.3.0` 包执行一次构建、测试、打包并产出 SHA-256 清单；Realtime 发布流水线分别产出 `Contracts 2.3.0`、`Integration 3.0.0` 与 `Outbox.EntityFrameworkCore 1.0.0`。审核后只把这些不可变候选发布到内部 NuGet feed；仓库内 `packages/` 只作为离线、CI 和迁移期的可复现来源。
 2. 在发布流水线中验证包 hash 后，再部署 Server、Gateway 与 Client；禁止恢复 sibling `ProjectReference` 或源码路径 fallback。
 3. Client 升级时同时应用 SQLite `deviceCredential` 迁移；Server 与 Gateway 应作为同一认证缓存契约批次部署。
 4. Gateway watcher 在过渡期同时读取 canonical `watchers:*` 与旧 `pw:*`，并双写两套结构。全部旧实例下线后至少等待旧 key 最大 TTL（当前 30 分钟）及观测缓冲，再删除 `pw:*` 兼容路径。

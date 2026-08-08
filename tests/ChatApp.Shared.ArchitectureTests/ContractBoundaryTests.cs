@@ -47,7 +47,7 @@ public sealed class ContractBoundaryTests
         XDocument buildProps = XDocument.Load(buildPropsPath);
 
         ProjectDescriptor[] projects = DiscoverContractProjects();
-        Assert.Equal("0.2.0", GetRequiredProperty(buildProps, "VersionPrefix", buildPropsPath));
+        Assert.Equal("0.3.0", GetRequiredProperty(buildProps, "VersionPrefix", buildPropsPath));
         Assert.All(
             projects,
             project => Assert.True(
