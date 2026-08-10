@@ -61,7 +61,7 @@ public sealed class BinaryGeneratorBoundaryTests
             element => element.Name.LocalName == "ProjectReference");
         var referencedProjectPath = Path.GetFullPath(Path.Combine(
             Path.GetDirectoryName(projectPath)!,
-            (string)projectReference.Attribute("Include")!));
+            ((string)projectReference.Attribute("Include")!).Replace('\\', Path.DirectorySeparatorChar)));
         var referencedProject = new FileInfo(referencedProjectPath);
         Assert.Equal("ChatApp.Protocol.Tcp.csproj", referencedProject.Name,
             StringComparer.OrdinalIgnoreCase);
