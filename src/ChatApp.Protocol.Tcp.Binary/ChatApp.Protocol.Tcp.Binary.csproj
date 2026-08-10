@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ChatApp.Protocol.Tcp.Binary</PackageId>
+    <AssemblyName>ChatApp.Protocol.Tcp.Binary</AssemblyName>
+    <RootNamespace>ChatApp.Shared.Protocol.Tcp.Binary</RootNamespace>
+    <Title>ChatApp bounded tagged TCP payload primitives</Title>
+    <PackageTags>ChatApp;contracts;TCP;protocol;binary;tagged</PackageTags>
+    <Description>BCL-only bounded tagged payload primitives and codec abstractions for ChatApp TCP contracts.</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ChatApp.Protocol.Tcp\ChatApp.Protocol.Tcp.csproj" />
+  </ItemGroup>
+</Project>

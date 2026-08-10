@@ -112,6 +112,141 @@ public sealed class TcpProtocolJsonGoldenTests
     }
 
     [Fact]
+    public void MessageHistoryRequestMatchesGoldenJson()
+    {
+        var value = new MessageHistoryRequest
+        {
+            RequestId = "request-01",
+            ConversationId = "conversation-01",
+            AfterReceivedAtMs = 1_735_689_600_123,
+            AfterMessageId = "message-09",
+            Limit = 50
+        };
+
+        const string expected = """
+            {"requestId":"request-01","conversationId":"conversation-01","afterReceivedAtMs":1735689600123,"afterMessageId":"message-09","limit":50}
+            """;
+
+        Assert.Equal(expected, JsonSerializer.Serialize(value, JsonContext.MessageHistoryRequest));
+    }
+
+    [Fact]
+    public void MessageHistoryResponseMatchesGoldenJson()
+    {
+        var value = new MessageHistoryResponse
+        {
+            RequestId = "request-01",
+            ConversationId = "conversation-01",
+            Succeeded = true,
+            Items =
+            [
+                new MessageHistoryItem
+                {
+                    MessageId = "message-10",
+                    ClientMessageId = "client-message-10",
+                    SenderUserId = 7,
+                    ReceiverUserId = 8,
+                    ConversationId = "conversation-01",
+                    Content = "hello",
+                    ReceivedAtMs = 1_735_689_600_000,
+                    EditVersion = 1,
+                    ChangedAtMs = 1_735_689_600_100,
+                    Attachments =
+                    [
+                        new TcpAttachmentRef
+                        {
+                            AttachmentId = "attachment-01",
+                            FileName = "voice.opus",
+                            ContentType = "audio/opus",
+                            SizeBytes = 1234,
+                            Status = 1
+                        }
+                    ],
+                    Reactions =
+                    [
+                        new MessageReactionSummary { Emoji = "👍", Count = 2, ReactedByMe = true }
+                    ],
+                    MentionedUserIds = [8],
+                    MentionedRoles = ["admin"]
+                }
+            ],
+            NextCursor = new MessageHistoryCursor
+            {
+                ReceivedAtMs = 1_735_689_600_000,
+                ChangedAtMs = 1_735_689_600_100,
+                MessageId = "message-10"
+            },
+            HasMore = true
+        };
+
+        const string expected = """
+            {"requestId":"request-01","conversationId":"conversation-01","succeeded":true,"items":[{"messageId":"message-10","clientMessageId":"client-message-10","senderUserId":7,"receiverUserId":8,"conversationId":"conversation-01","content":"hello","receivedAtMs":1735689600000,"editVersion":1,"changedAtMs":1735689600100,"attachments":[{"refVersion":1,"attachmentId":"attachment-01","fileName":"voice.opus","contentType":"audio/opus","sizeBytes":1234,"status":1}],"reactions":[{"emoji":"\uD83D\uDC4D","count":2,"reactedByMe":true}],"mentionedUserIds":[8],"mentionedRoles":["admin"]}],"nextCursor":{"receivedAtMs":1735689600000,"changedAtMs":1735689600100,"messageId":"message-10"},"hasMore":true}
+            """;
+
+        Assert.Equal(expected, JsonSerializer.Serialize(value, JsonContext.MessageHistoryResponse));
+    }
+
+    [Fact]
+    public void MessageHistoryResponseReadsLegacyPayloadWithoutConversationIdOrChangedAt()
+    {
+        const string json = """
+            {"requestId":"request-01","succeeded":true,"items":[],"nextCursor":{"receivedAtMs":1735689600000,"messageId":"message-10"},"hasMore":true}
+            """;
+
+        MessageHistoryResponse? value = JsonSerializer.Deserialize(
+            json,
+            JsonContext.MessageHistoryResponse);
+
+        Assert.NotNull(value);
+        Assert.Null(value.ConversationId);
+        Assert.Null(value.NextCursor?.ChangedAtMs);
+    }
+
+    [Fact]
+    public void SyncBootstrapRequestMatchesGoldenJson()
+    {
+        var value = new SyncBootstrapRequest
+        {
+            RequestId = "sync-01",
+            ListLimit = 50,
+            HistoryLimitPerConversation = 20,
+            MaxConversationsWithHistory = 10,
+            Watermarks =
+            [
+                new ConversationSyncWatermark
+                {
+                    ConversationId = "conversation-01",
+                    AfterReceivedAtMs = 1_735_689_600_100,
+                    AfterMessageId = "message-10"
+                }
+            ]
+        };
+
+        const string expected = """
+            {"requestId":"sync-01","listLimit":50,"historyLimitPerConversation":20,"maxConversationsWithHistory":10,"watermarks":[{"conversationId":"conversation-01","afterReceivedAtMs":1735689600100,"afterMessageId":"message-10"}]}
+            """;
+
+        Assert.Equal(expected, JsonSerializer.Serialize(value, JsonContext.SyncBootstrapRequest));
+    }
+
+    [Fact]
+    public void SyncBootstrapResponseReadsLegacyPayloadAndPreservesResetSemantics()
+    {
+        const string json = """
+            {"requestId":"sync-01","succeeded":true,"serverTimeMs":1735689600200,"conversations":[],"conversationsHasMore":false,"catchUps":[{"conversationId":"conversation-01","items":[],"hasMore":true,"nextCursor":{"receivedAtMs":1735689600100,"messageId":"message-10"}}],"resetsRequired":[{"conversationId":"conversation-02","reason":5,"tipMessageId":"message-20","tipReceivedAtMs":1735689600200,"clientAfterReceivedAtMs":1735689500000,"clientAfterMessageId":"message-01"}]}
+            """;
+
+        SyncBootstrapResponse? value = JsonSerializer.Deserialize(
+            json,
+            JsonContext.SyncBootstrapResponse);
+
+        Assert.NotNull(value);
+        Assert.Null(value.CatchUps[0].NextCursor?.ChangedAtMs);
+        Assert.Equal(TcpSyncCursorResetReason.BeyondRetention, value.ResetsRequired[0].Reason);
+        Assert.Equal(1_735_689_600_200, value.ResetsRequired[0].TipReceivedAtMs);
+    }
+
+    [Fact]
     public void PropertyNamesAreCaseSensitive()
     {
         const string json = """

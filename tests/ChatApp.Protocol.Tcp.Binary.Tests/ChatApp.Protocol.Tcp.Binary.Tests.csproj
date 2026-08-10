@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <PackageId>ChatApp.Shared.ArchitectureTests</PackageId>
-    <AssemblyName>ChatApp.Shared.ArchitectureTests</AssemblyName>
-    <RootNamespace>ChatApp.Shared.ArchitectureTests</RootNamespace>
+    <PackageId>ChatApp.Protocol.Tcp.Binary.Tests</PackageId>
+    <AssemblyName>ChatApp.Protocol.Tcp.Binary.Tests</AssemblyName>
+    <RootNamespace>ChatApp.Protocol.Tcp.Binary.Tests</RootNamespace>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -18,10 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ChatApp.Auth.Contracts\ChatApp.Auth.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\ChatApp.Contracts.Http\ChatApp.Contracts.Http.csproj" />
-    <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp\ChatApp.Protocol.Tcp.csproj" />
     <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp.Binary\ChatApp.Protocol.Tcp.Binary.csproj" />
-    <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp.Json\ChatApp.Protocol.Tcp.Json.csproj" />
+    <ProjectReference Include="..\..\generators\ChatApp.Protocol.Tcp.Binary.Generator\ChatApp.Protocol.Tcp.Binary.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>
