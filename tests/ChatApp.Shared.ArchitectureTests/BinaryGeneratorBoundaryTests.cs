@@ -59,11 +59,16 @@ public sealed class BinaryGeneratorBoundaryTests
         XElement projectReference = Assert.Single(
             document.Descendants(),
             element => element.Name.LocalName == "ProjectReference");
+        var referencedProjectPath = Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(projectPath)!,
+            (string)projectReference.Attribute("Include")!));
+        var expectedSuffix = Path.Combine(
+            "src",
+            "ChatApp.Protocol.Tcp",
+            "ChatApp.Protocol.Tcp.csproj");
         Assert.EndsWith(
-            "src\\ChatApp.Protocol.Tcp\\ChatApp.Protocol.Tcp.csproj",
-            Path.GetFullPath(Path.Combine(
-                Path.GetDirectoryName(projectPath)!,
-                (string)projectReference.Attribute("Include")!)),
+            expectedSuffix,
+            referencedProjectPath,
             StringComparison.OrdinalIgnoreCase);
     }
 
