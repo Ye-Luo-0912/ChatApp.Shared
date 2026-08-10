@@ -93,22 +93,10 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
-      "chatapp.auth.contracts": {
-        "type": "Project"
-      },
-      "chatapp.contracts.http": {
-        "type": "Project"
-      },
       "chatapp.protocol.tcp": {
         "type": "Project"
       },
       "chatapp.protocol.tcp.binary": {
-        "type": "Project",
-        "dependencies": {
-          "ChatApp.Protocol.Tcp": "[0.3.0, )"
-        }
-      },
-      "chatapp.protocol.tcp.json": {
         "type": "Project",
         "dependencies": {
           "ChatApp.Protocol.Tcp": "[0.3.0, )"
