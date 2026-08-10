@@ -62,13 +62,14 @@ public sealed class BinaryGeneratorBoundaryTests
         var referencedProjectPath = Path.GetFullPath(Path.Combine(
             Path.GetDirectoryName(projectPath)!,
             (string)projectReference.Attribute("Include")!));
+        var normalizedReferencedProjectPath = referencedProjectPath.Replace('\\', '/');
         var expectedSuffix = Path.Combine(
             "src",
             "ChatApp.Protocol.Tcp",
-            "ChatApp.Protocol.Tcp.csproj");
+            "ChatApp.Protocol.Tcp.csproj").Replace('\\', '/');
         Assert.EndsWith(
             expectedSuffix,
-            referencedProjectPath,
+            normalizedReferencedProjectPath,
             StringComparison.OrdinalIgnoreCase);
     }
 
