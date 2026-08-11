@@ -54,43 +54,6 @@ public enum TcpRelationshipListType : byte
     BlockedUsers = 3
 }
 
-public enum TcpRelationshipChangeOperation : byte
-{
-    Upsert = 0,
-    Delete = 1
-}
-
-public sealed class RelationshipSyncWatermark
-{
-    public TcpRelationshipListType ListType { get; set; }
-    public long AfterSequence { get; set; }
-}
-
-public sealed class RelationshipChangeLogEntry
-{
-    public long ChangeSequence { get; set; }
-    public TcpRelationshipChangeOperation Operation { get; set; }
-    public string ResourceId { get; set; } = string.Empty;
-    public long UserId { get; set; }
-    public string? Status { get; set; }
-    public string? Message { get; set; }
-    public long CreatedAtMs { get; set; }
-    public long OccurredAtMs { get; set; }
-    public string? RequestId { get; set; }
-}
-
-public sealed class RelationshipCatchUp
-{
-    public TcpRelationshipListType ListType { get; set; }
-    public IReadOnlyList<RelationshipChangeLogEntry> Changes { get; set; } = [];
-    public bool HasMore { get; set; }
-    public string? NextCursor { get; set; }
-    public long NextSequence { get; set; }
-    public long RetentionFloorSequence { get; set; }
-    public bool ResetRequired { get; set; }
-    public string? ResetReason { get; set; }
-}
-
 public enum TcpSyncCursorResetReason : byte
 {
     MessageNotFound = 1,

@@ -232,10 +232,8 @@ public sealed class TcpProtocolFrameFuzzTests
         Assert.Single(catchUp.Changes);
         Assert.True(catchUp.HasMore);
         Assert.Equal(0, catchUp.NextSequence);
-        Assert.Equal(0, catchUp.RetentionFloorSequence);
-        Assert.False(catchUp.ResetRequired);
+        Assert.Null(catchUp.ResetRequired);
         Assert.Null(catchUp.NextCursor);
-        Assert.Null(catchUp.ResetReason);
     }
 
     [Fact]
@@ -248,23 +246,19 @@ public sealed class TcpProtocolFrameFuzzTests
             [
                 new RelationshipChangeLogEntry
                 {
-                    ChangeSequence = 12,
                     Operation = TcpRelationshipChangeOperation.Delete,
                     ResourceId = "user-3",
                     UserId = 33,
                     Status = "done",
                     Message = "blocked",
                     CreatedAtMs = 1_735_689_600_200,
-                    OccurredAtMs = 1_735_689_600_250,
-                    RequestId = "req-9"
+                    OccurredAtMs = 1_735_689_600_250
                 }
             ],
             HasMore = false,
             NextCursor = "opaque-cursor",
             NextSequence = 12,
-            RetentionFloorSequence = 3,
-            ResetRequired = false,
-            ResetReason = null
+            ResetRequired = false
         };
 
         var json = JsonSerializer.Serialize(value, Json.RelationshipCatchUp);
@@ -276,7 +270,6 @@ public sealed class TcpProtocolFrameFuzzTests
         Assert.Equal(TcpRelationshipChangeOperation.Delete, roundTrip.Changes[0].Operation);
         Assert.Equal("opaque-cursor", roundTrip.NextCursor);
         Assert.Equal(12, roundTrip.NextSequence);
-        Assert.Equal(3, roundTrip.RetentionFloorSequence);
     }
 
     [Fact]
@@ -313,7 +306,6 @@ public sealed class TcpProtocolFrameFuzzTests
                     [
                         new RelationshipChangeLogEntry
                         {
-                            ChangeSequence = 1,
                             Operation = TcpRelationshipChangeOperation.Upsert,
                             ResourceId = "user-5",
                             UserId = 55,
@@ -321,8 +313,7 @@ public sealed class TcpProtocolFrameFuzzTests
                             OccurredAtMs = 1_735_689_600_000
                         }
                     ],
-                    NextSequence = 1,
-                    RetentionFloorSequence = 0
+                    NextSequence = 1
                 }
             ]
         };
