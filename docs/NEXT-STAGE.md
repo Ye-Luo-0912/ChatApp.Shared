@@ -8,7 +8,7 @@ Shared 只拥有跨进程、可版本化且至少有两个真实消费者的契�
 
 Shared 有两个顺序明确的接手批次，不得合并发布：
 
-1. **`PROTO-FEED-1`（现在可做）。** 补完现有 `0.4.1` 的帧级畸形/超限 fuzz 和旧字段 fixture，在干净 CI 重新 pack 六包并核对 hash；若任何源码或元数据已变化，升新 patch 版本，绝不覆盖已记录的 `0.4.1`。把不可变 feed、包清单和 locked-restore 指令交给 Gateway/Client。
+1. **`PROTO-FEED-1`（代码与测试已收口，feed 发布待版本策略决策）。** 帧级畸形/超限 fuzz 与旧附件/关系字段 old-new fixture 已落地并通过（`TcpProtocolFrameFuzzTests.cs`，ArchitectureTests `68/68` 通过，Release 0 warning/error）。干净 CI 重新 pack 六包并核对 hash 已完成，结论是 **`.nupkg` SHA-256 不可复现**（core-properties `.psmdcp` 文件名每次随机 GUID；DLL/nuspec/README 均确定）。因此 feed 发布前必须先决定版本策略（见「接手状态」P0 发布 TODO），绝不覆盖已记录的 `0.4.1`。把不可变 feed、包清单和 locked-restore 指令交给 Gateway/Client。
 2. **`REL-WIRE-2`（必须等待）。** 只有收到 `REL-GATE-1` 的 manifest、两轮 reconcile report、故障矩阵和稳定错误码清单后，才定义关系 list/catch-up/reset wire。先写字段/预算/游标/reset 语义表，再实现唯一 DTO、JSON metadata、old/new golden 和 producer→consumer fixture。
 3. **交付 Gateway/Client。** 发布新包版本和 SHA-256，附 reserved field 清单、兼容窗口、部署顺序与回滚顺序；Gateway/Client 只消费包，不复制源码或重新声明 DTO。Realtime 内部 snapshot/checkpoint/hash 不进入外部 wire。
 4. **暂不并线。** `chatapp-tagged-v1` 可继续做离线 schema/基准，但生产协商保持关闭；关系首轮、二进制和媒体契约不得同批发布。
@@ -19,7 +19,7 @@ Shared 有两个顺序明确的接手批次，不得合并发布：
 
 - P0（已收口）：`ChatApp.Protocol.Tcp 0.4.1` 已成为 Client↔Gateway 历史、同步、附件和会话水位的唯一 wire schema；Gateway/Client 已升级同一不可变包并删除本地同义 DTO，`ConversationId`、`ClientMessageId`、`ChangedAtMs`、reset、游标方向和 null 语义由 Shared golden 固定。
 - P0（兼容矩阵已完成第一版，发布仍是 TODO）：Shared 已覆盖 old-reader/new-writer、new-reader/old-writer、未知可选字段、未知枚举、Unix 毫秒、双向游标与截断输入；Gateway producer 和 Client consumer 各有 `8/8` 交叉 fixture。六个 nupkg、四份 fixture 和本地消费端二进制 SHA-256 已记录在迁移文档。
-  - 发布前只补帧级超限/畸形输入 fuzz 与旧附件/关系字段组合，随后在干净 CI 中复验同一六包 hash；任何运行时源码、README 或包元数据变化都必须升新版本，不能覆盖当前 `0.4.1`。
+  - 发布前帧级超限/畸形输入 fuzz 与旧附件/关系字段组合已补齐并通过（见「下一步执行与交接」`PROTO-FEED-1`）；干净 CI 复验六包 hash 的结论是 `.nupkg` SHA-256 不可复现（core-properties `.psmdcp` 文件名随机 GUID），DLL 本身确定。**待决策版本策略**：源码未变（与 `0.4.1` 记录同提交），但权威 nupkg 不可复现；不得把非确定性重打包的 nupkg 以其 hash 不等于记录值的方式当作 `0.4.1` 发布。可行路径：a) 接受「DLL 确定 + nupkg hash 不可复现」，以 DLL/content hash 作为权威；b) 对 nupkg 做确定性归一化（固定 core-properties 文件名）后重新记录六包 hash；c) 升新 patch 版本并生成新清单。决策后再向 feed 发布。
   - feed 发布完成后让 Gateway/Client 仅从 feed 做一次 locked restore + 短时 TCP 联调；失败回滚到上一不可变包，不改 SQLite 数据，也不恢复本地重复 DTO。
   - breaking wire 变更必须使用新协议/包主版本和明确升级顺序，不能靠 namespace 或反序列化猜测兼容。
 - P0（边界已收口）：Gateway 通过显式 mapper 把 Realtime 的附件、Reaction、会话和关系投影转换成 TCP wire；Shared 不直接引用 Realtime 包，也不把数据库/事件所有权搬进 wire 层。后续新增嵌套类型仍须记录 canonical owner 与映射差异。

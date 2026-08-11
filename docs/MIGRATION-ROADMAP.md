@@ -32,6 +32,21 @@ Client 与 Gateway 已删除本地 `PacketCommand` 枚举。源码中的 alias �
 
 当前跨仓 fixture SHA-256：Shared JSON golden `DBACEE52E578C786DF3EED753F5B4DADB51EEE3F82F0AA4E04A308E061334D1E`，Shared old/new matrix `974B6AE15B1A9BA5060C1F5A8531210F8CFECEE5FB17C86641363A5F31968B25`，Gateway producer/compatibility fixture `DB0288078E293240F69B243BDB924AA719E11A533B35C77D3C45A812949C28CA`，Client consumer/compatibility fixture `D05BAE10DEADF4542071B1B77C0247F797161953ED8110FB67F2213BDFAF3E5F`。最终 locked build 的 `ChatApp.TcpGateway.dll`/`Chat_App.dll` SHA-256 分别为 `2B90FD4FC467780C58DD0364ECEA50EA6CC7B86CD7D6F4C38095739E08B60F89` 与 `6CDF4A0ED9CF1B523491764F6758058FB9B4B141BE0DECEFF4D36676F284CA4D`；这些二进制 hash 仅绑定本次本地候选，任何重新构建都应重新记录。
 
+## PROTO-FEED-1 帧级 fuzz 与包确定性核查（2026-08-11）
+
+发布前补的帧级畸形/超限 fuzz 与旧附件、关系字段组合 old/new fixture 已落地并通过：
+
+- 新增 `tests/ChatApp.Shared.ArchitectureTests/TcpProtocolFrameFuzzTests.cs`，覆盖：
+  - **帧级畸形输入**：截断 JSON、非 JSON 字节、错误值类型、空/顶层标量、深嵌套（超默认 MaxDepth）、尾部垃圾、重复字段（last-wins）、未知字段忽略、非法转义、超 range 数值——codec 必须干净抛 `JsonException`，不半物化或崩溃。
+  - **帧级超限**：超大字符串字段、接近/超过 80 KiB 硬上限的多条 item 仍忠实往返；`Limit` 是端点策略而非 codec 职责（见 `TcpFrameConstants` 注释）。
+  - **旧附件字段组合**：旧格式 `TcpAttachmentRef`（缺 `DownloadApiHint/DownloadToken/ThumbnailApiHint`）降级到默认值；全字段新格式原样往返；附件嵌在 `MessageHistoryItem` 内的旧组合可读。
+  - **关系字段组合**：旧 `RelationshipCatchUp`（缺 `NextSequence/RetentionFloorSequence/ResetRequired`）降级到默认；新格式全字段往返；`RelationshipSyncWatermark` 与带 `RelationshipCatchUps` 的 `SyncBootstrapResponse` 往返。
+  - 结果：`ChatApp.Shared.ArchitectureTests` Release 构建 `0 warning / 0 error`，测试 `68/68` 通过（原 41 + 新增 27）。该改动仅触及测试项目，不改变任何 `0.4.1` 包源码或元数据。
+- **包确定性核查（重要工程发现）**：对同一源码连续两次 `dotnet pack` 产出不同的 `.nupkg` SHA-256，根因是 NuGet pack 生成的 core-properties `.psmdcp` 文件**文件名是每次随机 GUID**（内容、`nuspec`、`README` 与编译产出 DLL 均逐字节一致）。因此：
+  - `0.4.1` 已记录的六包 SHA-256 **无法通过重新打包复现**；DLL 本身确定，但 nupkg hash 不可复现。
+  - 现盘 `artifacts/packages/*.0.4.1`（创建于 2026-08-11 01:50，晚于记录提交 c06dccc 01:43）是**非确定性重打包产物**，其 hash 与已记录值不同，**不代表已记录的权威工件**。
+  - 版本处理：源码在 c06dccc 与 0.4.1 记录同提交，未在记录后变化；但已记录的权威 `.nupkg` 文件当前不可复现，feed 发布前必须先决定版本策略（见 `NEXT-STAGE.md`）。不得把非确定性重打包的 nupkg 以其 hash 不等于记录值的方式当作 `0.4.1` 发布。
+
 ## 独立构建验证快照（2026-08-06，历史基线）
 
 | 仓库 | 锁定还原 / Release 构建 | 测试结果 |
