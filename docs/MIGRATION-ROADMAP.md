@@ -60,6 +60,34 @@ Client 与 Gateway 已删除本地 `PacketCommand` 枚举。源码中的 alias �
 - 测试 `tests/ChatApp.Shared.ArchitectureTests/TcpRelationshipListContractTests.cs` 覆盖 golden、old/new 兼容矩阵（legacy 无 `ResetRequired` 字段）、未知列表类型/未知 Status、畸形/截断输入与字节预算。结果：该批 `14/14` 通过，Architecture 全套 `82/82` 通过，Release 构建 `0 warning / 0 error`。
 - 尚未打包发布、也未经 Gateway/Client 双端编译消费与 JSON 短联调；能力位保持关闭，mutation 仍走 Server HTTP。
 
+## REL-WIRE-2 关系增量同步（sync/catch-up）wire 收口（2026-08-11）
+
+关系列表的增量同步 wire 已在 Shared 按与 list 只读 wire 同等的严谨度收口：
+
+- 独立契约文件 `src/ChatApp.Protocol.Tcp/RelationshipSyncContracts.cs`：汇聚 `RelationshipSyncWatermark` / `RelationshipChangeLogEntry` / `RelationshipCatchUp` 与 `TcpRelationshipChangeOperation`（从 `SyncBootstrapContracts.cs` 迁入，同 namespace 无引用改动），并新增稳定错误码 `TcpRelationshipSyncErrorCode`（`relationship_read_projection_unavailable` / `relationship_projection_changed` / `relationships_gap` / `invalid_cursor` / `relationships_retention_exceeded` / `request_too_large` / `bad_request`）与预算常量 `TcpRelationshipSyncConstants`（`ResourceId ≤ 64` / `Status ≤ 32` / `Message ≤ 512`、单页 ≤ 200 条、单响应 ≤ 80 KiB）。
+- 语义表固化在契约头部注释：Upsert/Delete 按 `ResourceId` 应用（未知操作 fail-closed）；opaque 水位 `AfterSequence`/`NextSequence` 客户端只持久化并原样回传、不解释不自增；中间页 `HasMore=true` 用 `NextCursor` 续页且不推进水位，尾页才持久化 `NextSequence`；水位低于保留水位 / 分页版本变化 / 缺口时 `ResetRequired=true` 并返回稳定错误码，客户端丢弃本地状态经全量 list 重建。
+- **内部编码隔离**：移除泄漏 Realtime 内部的 `ChangeSequence` / `RequestId` / `RetentionFloorSequence` / `ResetReason` 字段；`ResetRequired` 改为可空以兼容旧生产端省略该字段。
+- JSON metadata 仍注册于 `TcpProtocolJsonSerializerContext`（类型名/namespace 未变）。
+- 测试 `tests/ChatApp.Shared.ArchitectureTests/TcpRelationshipSyncContractTests.cs` 覆盖 golden、reset 语义、水位不透明往返、未知枚举 fail-closed、预算、内部编码不序列化、old-new 兼容和畸形截断。结果：该批 `13/13` 通过，Architecture 全套 `95/95` 通过，Release 构建 `0 warning / 0 error`（原 `TcpProtocolFrameFuzzTests` 中关系 sync 字段组合用例已同步适配精简后的 DTO）。
+- 尚未打包发布、也未经 Gateway/Client 双端编译消费与 JSON 短联调；能力位保持关闭，mutation 仍走 Server HTTP。
+
+## 0.4.2 本地发布候选证据（2026-08-12）
+
+REL-WIRE-2 的 list 只读 + sync/catch-up 两个 wire 能力在 `0.4.1` 记录之后进入 `ChatApp.Protocol.Tcp`/`.Json` 源码，`0.4.1` 的 hash 已不能代表当前源码。按迁移规则「新能力或可选字段升 minor / 0.x breaking 至少升 minor」，本批视为对 `0.4.1` 候选的内部泄漏字段清理 + 新能力，**六包统一升 patch 至 `0.4.2`**（`Directory.Build.props` `VersionPrefix`、`ContractBoundaryTests` 断言、`contracts.yml` 包清单、`README` 版本表已同步）。
+
+六个候选包由同一次 Release pack 生成，尚未发布到共享 feed。以下 SHA-256 为 `tools/Normalize-NupkgDeterministic.ps1` 归一化后的确定字节：
+
+| 候选包 | SHA-256 |
+| --- | --- |
+| `ChatApp.Auth.Contracts.0.4.2.nupkg` | `1D3FA0B3DA97FE943EA4A0195B0D9A20BBE3407BB85F0A78C81CF3DA1FC67C42` |
+| `ChatApp.Contracts.Http.0.4.2.nupkg` | `BB0097C0AC81483B5ABE63546673945F1CDFE96B6E56D531698428B1E0867F7E` |
+| `ChatApp.Protocol.Tcp.0.4.2.nupkg` | `7AD665AD311A799BBA946D71F9D7F96347A8236074A879504E5CAA72A4A33E75` |
+| `ChatApp.Protocol.Tcp.Binary.0.4.2.nupkg` | `8546A0C469CEC15C5AA117BF48AC37FFBCF678D666DC71A8B3FFB4163ED6C095` |
+| `ChatApp.Protocol.Tcp.Binary.Generator.0.4.2.nupkg` | `505FAA6B9C76AB213BC32222C30CB37BA658C2D971E2B42637BB22C1799B4E0F` |
+| `ChatApp.Protocol.Tcp.Json.0.4.2.nupkg` | `08280BB404C6A29D6FBF70FB4A152698E7831445D0CD9B9C8DDD0808F199D19F` |
+
+`0.4.2` 已在本地完成 Release 构建（`0 warning / 0 error`）与全套测试（Architecture `95/95`、Binary `21/21`、Generator `7/7`）。剩余：把不可变包交给 Gateway/Client 从 feed 做一次 locked restore + 短时 TCP JSON 联调，失败回滚到上一不可变包；随后才允许开 capability。
+
 ## 独立构建验证快照（2026-08-06，历史基线）
 
 | 仓库 | 锁定还原 / Release 构建 | 测试结果 |

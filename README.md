@@ -6,15 +6,15 @@
 
 | 包 | 版本 | 职责 | 内部依赖 |
 | --- | --- | --- | --- |
-| `ChatApp.Auth.Contracts` | `0.4.1` | AccessToken Redis 键、缓存值 schema、账户状态与 JSON metadata | 无 |
-| `ChatApp.Contracts.Http` | `0.4.1` | Auth、好友、附件、会话 HTTP wire DTO 与 JSON metadata | 无 |
-| `ChatApp.Protocol.Tcp` | `0.4.1` | TCP 帧/命令/能力/错误，以及 Client↔Gateway 的历史、同步和附件 wire DTO | 无 |
-| `ChatApp.Protocol.Tcp.Json` | `0.4.1` | TCP DTO 的 source-generated JSON metadata 与统一序列化策略 | `ChatApp.Protocol.Tcp` |
-| `ChatApp.Protocol.Tcp.Binary` | `0.4.1` | 默认关闭的有界 tagged-binary runtime；无反射，提供 reader/writer/codec 基础 | `ChatApp.Protocol.Tcp` |
-| `ChatApp.Protocol.Tcp.Binary.Generator` | `0.4.1` | 为同一批 TCP DTO 生成 codec 的 build-time incremental generator | 无运行时依赖 |
+| `ChatApp.Auth.Contracts` | `0.4.2` | AccessToken Redis 键、缓存值 schema、账户状态与 JSON metadata | 无 |
+| `ChatApp.Contracts.Http` | `0.4.2` | Auth、好友、附件、会话 HTTP wire DTO 与 JSON metadata | 无 |
+| `ChatApp.Protocol.Tcp` | `0.4.2` | TCP 帧/命令/能力/错误，以及 Client↔Gateway 的历史、同步和附件 wire DTO | 无 |
+| `ChatApp.Protocol.Tcp.Json` | `0.4.2` | TCP DTO 的 source-generated JSON metadata 与统一序列化策略 | `ChatApp.Protocol.Tcp` |
+| `ChatApp.Protocol.Tcp.Binary` | `0.4.2` | 默认关闭的有界 tagged-binary runtime；无反射，提供 reader/writer/codec 基础 | `ChatApp.Protocol.Tcp` |
+| `ChatApp.Protocol.Tcp.Binary.Generator` | `0.4.2` | 为同一批 TCP DTO 生成 codec 的 build-time incremental generator | 无运行时依赖 |
 
 前五个 runtime 包为 .NET 10、BCL-only；Generator 以 netstandard2.0 analyzer 形式打包，
-Roslyn 只在构建期使用且不会进入消费者运行时。六个包统一使用 `0.4.1` 候选版本；
+Roslyn 只在构建期使用且不会进入消费者运行时。六个包统一使用 `0.4.2` 候选版本；
 Binary format 尚未加入生产协商列表，当前线上仍为 JSON。
 
 当前没有 `ChatApp.Shared.Primitives` 项目：尚无两个以上语义稳定的消费者，暂不建立 speculative primitives 包。未来满足共享门槛时再以真实类型、消费者矩阵和兼容性测试共同引入，不保留空 marker。

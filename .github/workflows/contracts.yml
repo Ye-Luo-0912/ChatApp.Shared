@@ -41,12 +41,12 @@ jobs:
         shell: pwsh
         run: |
           $expected = @(
-            'ChatApp.Auth.Contracts.0.4.1.nupkg',
-            'ChatApp.Contracts.Http.0.4.1.nupkg',
-            'ChatApp.Protocol.Tcp.0.4.1.nupkg',
-            'ChatApp.Protocol.Tcp.Binary.0.4.1.nupkg',
-            'ChatApp.Protocol.Tcp.Binary.Generator.0.4.1.nupkg',
-            'ChatApp.Protocol.Tcp.Json.0.4.1.nupkg'
+            'ChatApp.Auth.Contracts.0.4.2.nupkg',
+            'ChatApp.Contracts.Http.0.4.2.nupkg',
+            'ChatApp.Protocol.Tcp.0.4.2.nupkg',
+            'ChatApp.Protocol.Tcp.Binary.0.4.2.nupkg',
+            'ChatApp.Protocol.Tcp.Binary.Generator.0.4.2.nupkg',
+            'ChatApp.Protocol.Tcp.Json.0.4.2.nupkg'
           )
           $actual = @(Get-ChildItem artifacts/packages -Filter *.nupkg | Sort-Object Name | ForEach-Object Name)
           $difference = @(Compare-Object ($expected | Sort-Object) $actual)
