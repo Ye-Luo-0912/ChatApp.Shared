@@ -50,6 +50,16 @@ Client 与 Gateway 已删除本地 `PacketCommand` 枚举。源码中的 alias �
   - **可复现验证**：对六包连续两次独立 pack + 归一化，逐包 SHA-256 完全一致（`IDENTICAL`）。因此 `0.4.1` 六包现可在本地与干净 CI 复现同一组 hash，作为权威发布工件。
   - 版本处理：源码在 c06dccc 与 `0.4.1` 记录同提交，未在记录后变化；`0.4.1` 保持版本不变，仅以归一化后的确定字节重新记录六包 hash（下表）。
 
+## REL-WIRE-2 关系只读 list wire schema 收口（2026-08-11）
+
+关系只读列表的 Client↔Gateway wire 已在 Shared 按真实 Server/Client 语义定义并收口：
+
+- 新增唯一 DTO `TcpRelationshipListRequest` / `TcpRelationshipListResponse` / `TcpRelationshipListItem` 与稳定错误码常量（`TcpRelationshipListErrorCode`），位于 `src/ChatApp.Protocol.Tcp/RelationshipListContracts.cs`。列表类型复用既有 `TcpRelationshipListType`（Friends=1 / FriendRequests=2 / BlockedUsers=3，与 Realtime 数值一致）。
+- 字段/预算/游标/reset 语义表固化在契约头部注释：PageSize 1–200（默认 50）、单响应 ≤ 80 KiB、`ResourceId ≤ 64` / `Status ≤ 32` / `Message ≤ 512`（UTF-8 字节）；opaque cursor 只承诺继续或明确失效，畸形游标返回 `invalid_cursor`；unavailable / version-changed / gap 以稳定错误码表达，其中 version-changed / gap 触发 `ResetRequired`，消费者必须丢弃游标从第一页重建。
+- JSON metadata 已注册于 `ChatApp.Protocol.Tcp.Json`（`TcpProtocolJsonSerializerContext`）。
+- 测试 `tests/ChatApp.Shared.ArchitectureTests/TcpRelationshipListContractTests.cs` 覆盖 golden、old/new 兼容矩阵（legacy 无 `ResetRequired` 字段）、未知列表类型/未知 Status、畸形/截断输入与字节预算。结果：该批 `14/14` 通过，Architecture 全套 `82/82` 通过，Release 构建 `0 warning / 0 error`。
+- 尚未打包发布、也未经 Gateway/Client 双端编译消费与 JSON 短联调；能力位保持关闭，mutation 仍走 Server HTTP。
+
 ## 独立构建验证快照（2026-08-06，历史基线）
 
 | 仓库 | 锁定还原 / Release 构建 | 测试结果 |
