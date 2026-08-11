@@ -58,7 +58,7 @@ Client 与 Gateway 已删除本地 `PacketCommand` 枚举。源码中的 alias �
 - 字段/预算/游标/reset 语义表固化在契约头部注释：PageSize 1–200（默认 50）、单响应 ≤ 80 KiB、`ResourceId ≤ 64` / `Status ≤ 32` / `Message ≤ 512`（UTF-8 字节）；opaque cursor 只承诺继续或明确失效，畸形游标返回 `invalid_cursor`；unavailable / version-changed / gap 以稳定错误码表达，其中 version-changed / gap 触发 `ResetRequired`，消费者必须丢弃游标从第一页重建。
 - JSON metadata 已注册于 `ChatApp.Protocol.Tcp.Json`（`TcpProtocolJsonSerializerContext`）。
 - 测试 `tests/ChatApp.Shared.ArchitectureTests/TcpRelationshipListContractTests.cs` 覆盖 golden、old/new 兼容矩阵（legacy 无 `ResetRequired` 字段）、未知列表类型/未知 Status、畸形/截断输入与字节预算。结果：该批 `14/14` 通过，Architecture 全套 `82/82` 通过，Release 构建 `0 warning / 0 error`。
-- 尚未打包发布、也未经 Gateway/Client 双端编译消费与 JSON 短联调；能力位保持关闭，mutation 仍走 Server HTTP。
+- 尚未打包发布、也未经 Gateway/Client 双端编译消费与 JSON 短联调；能力位保持关闭，mutation 仍走 Server HTTP。**2026-08-12 更新**：六包已升 `0.4.2` 并记录归一化 SHA-256；Gateway/Client 已从 feed locked restore `0.4.2` 双端编译消费（Release 0 warning/error，wire 兼容测试全过，见「0.4.2 本地发布候选证据」）。剩余真实跨进程短时 TCP JSON 联调通过后才允许开 capability。
 
 ## REL-WIRE-2 关系增量同步（sync/catch-up）wire 收口（2026-08-11）
 
@@ -69,7 +69,7 @@ Client 与 Gateway 已删除本地 `PacketCommand` 枚举。源码中的 alias �
 - **内部编码隔离**：移除泄漏 Realtime 内部的 `ChangeSequence` / `RequestId` / `RetentionFloorSequence` / `ResetReason` 字段；`ResetRequired` 改为可空以兼容旧生产端省略该字段。
 - JSON metadata 仍注册于 `TcpProtocolJsonSerializerContext`（类型名/namespace 未变）。
 - 测试 `tests/ChatApp.Shared.ArchitectureTests/TcpRelationshipSyncContractTests.cs` 覆盖 golden、reset 语义、水位不透明往返、未知枚举 fail-closed、预算、内部编码不序列化、old-new 兼容和畸形截断。结果：该批 `13/13` 通过，Architecture 全套 `95/95` 通过，Release 构建 `0 warning / 0 error`（原 `TcpProtocolFrameFuzzTests` 中关系 sync 字段组合用例已同步适配精简后的 DTO）。
-- 尚未打包发布、也未经 Gateway/Client 双端编译消费与 JSON 短联调；能力位保持关闭，mutation 仍走 Server HTTP。
+- 尚未打包发布、也未经 Gateway/Client 双端编译消费与 JSON 短联调；能力位保持关闭，mutation 仍走 Server HTTP。**2026-08-12 更新**：六包已升 `0.4.2` 并记录归一化 SHA-256；Gateway/Client 已从 feed locked restore `0.4.2` 双端编译消费（Release 0 warning/error，wire 兼容测试全过，见「0.4.2 本地发布候选证据」）。剩余真实跨进程短时 TCP JSON 联调通过后才允许开 capability。
 
 ## 0.4.2 本地发布候选证据（2026-08-12）
 
@@ -86,7 +86,7 @@ REL-WIRE-2 的 list 只读 + sync/catch-up 两个 wire 能力在 `0.4.1` 记录�
 | `ChatApp.Protocol.Tcp.Binary.Generator.0.4.2.nupkg` | `505FAA6B9C76AB213BC32222C30CB37BA658C2D971E2B42637BB22C1799B4E0F` |
 | `ChatApp.Protocol.Tcp.Json.0.4.2.nupkg` | `08280BB404C6A29D6FBF70FB4A152698E7831445D0CD9B9C8DDD0808F199D19F` |
 
-`0.4.2` 已在本地完成 Release 构建（`0 warning / 0 error`）与全套测试（Architecture `95/95`、Binary `21/21`、Generator `7/7`）。剩余：把不可变包交给 Gateway/Client 从 feed 做一次 locked restore + 短时 TCP JSON 联调，失败回滚到上一不可变包；随后才允许开 capability。
+`0.4.2` 已在本地完成 Release 构建（`0 warning / 0 error`）与全套测试（Architecture `95/95`、Binary `21/21`、Generator `7/7`）。**双端联调已完成（2026-08-12）**：Gateway（ChatAppTCP_Server）与 Client（Chat_App）均从各自 `packages/` feed locked restore `0.4.2` 并 Release 构建 0 warning/error；Gateway wire 兼容测试 `TcpProtocolContractCompatibilityTests` 15/15 与 `RealtimeContractConsolidationTests` 全过，全套 566 passed + 1 Redis skip（1 个 DirectSocket/Persistent Windows loopback 时序 flaky 隔离通过，与 0.4.2 无关）；Client Protocol `58/58`、Unit `40/40`、Integration `185/185`（含关系 fail-closed 与 `SyncBootstrapMultiPageTests` 适配精简 DTO）。剩余唯一拦项：真实跨进程短时 TCP JSON 联调（需 Redis/NATS/Postgres/Realtime 环境）通过后才允许开 capability。
 
 ## 独立构建验证快照（2026-08-06，历史基线）
 
