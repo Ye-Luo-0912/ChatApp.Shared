@@ -17,18 +17,20 @@
 
 Client 与 Gateway 已删除本地 `PacketCommand` 枚举。源码中的 alias 只用于缩短名称，公开签名与编解码实际类型都是 `ChatApp.Shared.Protocol.Tcp.PacketCommand`。历史短名称没有进入共享枚举。
 
-## 0.4.1 本地发布候选证据（2026-08-10）
+## 0.4.1 本地发布候选证据（2026-08-10；hash 于 2026-08-11 归一化后重记录）
 
 六个候选包由同一次 Release pack 生成，尚未发布到共享 feed；Client 与 Gateway 已用 locked restore 消费同一份 `ChatApp.Protocol.Tcp`/`.Json` 包并完成 Release 构建。相同版本不得用后续构建覆盖，若源码、README 或包元数据发生变化，必须重新升版本并生成新清单。
 
+以下 SHA-256 为 `tools/Normalize-NupkgDeterministic.ps1` 归一化后的确定字节（连续两次独立 pack + 归一化复现一致），可在干净 CI 中复现。
+
 | 候选包 | SHA-256 |
 | --- | --- |
-| `ChatApp.Auth.Contracts.0.4.1.nupkg` | `543268ECC0764ED6FFF1DD98EB25CDA5D0B2C2F9C9EF48B45A663E0490CE951F` |
-| `ChatApp.Contracts.Http.0.4.1.nupkg` | `30840595E295DFFBAAB4D7E3BE2C4940E74475C4EB0BD8F256C31468878F7F16` |
-| `ChatApp.Protocol.Tcp.0.4.1.nupkg` | `D8CB84F024A82D92BF33BA51DB6F596375CE767DF4B734A802DF07083239F9DF` |
-| `ChatApp.Protocol.Tcp.Json.0.4.1.nupkg` | `1A99C47A51DFC42C72460FE7F995E13EDB758E96CFCEF8C171056C79CA6A08CE` |
-| `ChatApp.Protocol.Tcp.Binary.0.4.1.nupkg` | `0F8436483217B38E5641EA9CE6E862675BF12A6571C2EDC8788031BE89E4A643` |
-| `ChatApp.Protocol.Tcp.Binary.Generator.0.4.1.nupkg` | `543BB4EE3C1F96ACD637784100A920D36EEFEDC9F356E370673D3ABE22AB5EE5` |
+| `ChatApp.Auth.Contracts.0.4.1.nupkg` | `D1F146BCD912F6032204D89F82D510453354932D97103BB451BC97A4E920E27B` |
+| `ChatApp.Contracts.Http.0.4.1.nupkg` | `E95E87E6345C0C21D2C805F1ADFFCBEDD1719060402DF600EB9E475A8F722E0A` |
+| `ChatApp.Protocol.Tcp.0.4.1.nupkg` | `F56E6662F958396136C46359B0538EEC5F024331617771DDE55CFD55BE0EA4D5` |
+| `ChatApp.Protocol.Tcp.Json.0.4.1.nupkg` | `15BAAFEF4AAF2A14BEBEC89B6C2217B56C8C8FEFE80D8652826DC210B61ABAFC` |
+| `ChatApp.Protocol.Tcp.Binary.0.4.1.nupkg` | `031B13FD20942D41E267CACD43093EA939B987D1EFE40612C4599527AC4D4FF6` |
+| `ChatApp.Protocol.Tcp.Binary.Generator.0.4.1.nupkg` | `ABE61020AF257A07AAC7475FA09BBC670762B25A2BE444590F05658801E4628E` |
 
 当前跨仓 fixture SHA-256：Shared JSON golden `DBACEE52E578C786DF3EED753F5B4DADB51EEE3F82F0AA4E04A308E061334D1E`，Shared old/new matrix `974B6AE15B1A9BA5060C1F5A8531210F8CFECEE5FB17C86641363A5F31968B25`，Gateway producer/compatibility fixture `DB0288078E293240F69B243BDB924AA719E11A533B35C77D3C45A812949C28CA`，Client consumer/compatibility fixture `D05BAE10DEADF4542071B1B77C0247F797161953ED8110FB67F2213BDFAF3E5F`。最终 locked build 的 `ChatApp.TcpGateway.dll`/`Chat_App.dll` SHA-256 分别为 `2B90FD4FC467780C58DD0364ECEA50EA6CC7B86CD7D6F4C38095739E08B60F89` 与 `6CDF4A0ED9CF1B523491764F6758058FB9B4B141BE0DECEFF4D36676F284CA4D`；这些二进制 hash 仅绑定本次本地候选，任何重新构建都应重新记录。
 
@@ -42,10 +44,11 @@ Client 与 Gateway 已删除本地 `PacketCommand` 枚举。源码中的 alias �
   - **旧附件字段组合**：旧格式 `TcpAttachmentRef`（缺 `DownloadApiHint/DownloadToken/ThumbnailApiHint`）降级到默认值；全字段新格式原样往返；附件嵌在 `MessageHistoryItem` 内的旧组合可读。
   - **关系字段组合**：旧 `RelationshipCatchUp`（缺 `NextSequence/RetentionFloorSequence/ResetRequired`）降级到默认；新格式全字段往返；`RelationshipSyncWatermark` 与带 `RelationshipCatchUps` 的 `SyncBootstrapResponse` 往返。
   - 结果：`ChatApp.Shared.ArchitectureTests` Release 构建 `0 warning / 0 error`，测试 `68/68` 通过（原 41 + 新增 27）。该改动仅触及测试项目，不改变任何 `0.4.1` 包源码或元数据。
-- **包确定性核查（重要工程发现）**：对同一源码连续两次 `dotnet pack` 产出不同的 `.nupkg` SHA-256，根因是 NuGet pack 生成的 core-properties `.psmdcp` 文件**文件名是每次随机 GUID**（内容、`nuspec`、`README` 与编译产出 DLL 均逐字节一致）。因此：
-  - `0.4.1` 已记录的六包 SHA-256 **无法通过重新打包复现**；DLL 本身确定，但 nupkg hash 不可复现。
-  - 现盘 `artifacts/packages/*.0.4.1`（创建于 2026-08-11 01:50，晚于记录提交 c06dccc 01:43）是**非确定性重打包产物**，其 hash 与已记录值不同，**不代表已记录的权威工件**。
-  - 版本处理：源码在 c06dccc 与 0.4.1 记录同提交，未在记录后变化；但已记录的权威 `.nupkg` 文件当前不可复现，feed 发布前必须先决定版本策略（见 `NEXT-STAGE.md`）。不得把非确定性重打包的 nupkg 以其 hash 不等于记录值的方式当作 `0.4.1` 发布。
+- **包确定性核查（重要工程发现）+ 修复（已收口）**：
+  - 对同一源码连续两次 `dotnet pack` 产出不同的 `.nupkg` SHA-256，根因是 NuGet pack 生成的 core-properties `.psmdcp` 文件**文件名是每次随机 GUID**，且 core-properties 关系的 `Id` 也是每次随机 16 位（`R` + 15 位十六进制）；内容、`nuspec`、`README` 与编译产出 DLL 均逐字节一致。
+  - **版本策略决策（2026-08-11）：采用「确定性归一化后重记录」**。新增 `tools/Normalize-NupkgDeterministic.ps1`，对每个 nupkg ①把 `core-properties/*.psmdcp` 重命名为固定名 `package.psmdcp`，②把 core-properties 关系 `Id` 归一化为固定值 `R0000000000000002`，③按名称排序、固定时间戳（2026-01-01T00:00:00Z）、固定压缩级别重写 zip。CI（`contracts.yml`）已在 Pack 之后、写 SHA256SUMS 之前插入该归一化步骤。
+  - **可复现验证**：对六包连续两次独立 pack + 归一化，逐包 SHA-256 完全一致（`IDENTICAL`）。因此 `0.4.1` 六包现可在本地与干净 CI 复现同一组 hash，作为权威发布工件。
+  - 版本处理：源码在 c06dccc 与 `0.4.1` 记录同提交，未在记录后变化；`0.4.1` 保持版本不变，仅以归一化后的确定字节重新记录六包 hash（下表）。
 
 ## 独立构建验证快照（2026-08-06，历史基线）
 

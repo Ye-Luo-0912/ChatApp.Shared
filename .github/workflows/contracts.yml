@@ -33,6 +33,10 @@ jobs:
       - name: Pack once
         run: dotnet pack ChatApp.Shared.slnx --configuration Release --no-build --no-restore --output artifacts/packages
 
+      - name: Normalize packages for deterministic bytes
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/Normalize-NupkgDeterministic.ps1 -PackagesDir artifacts/packages
+
       - name: Verify package set and write checksums
         shell: pwsh
         run: |
