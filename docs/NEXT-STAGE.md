@@ -9,7 +9,7 @@ Shared 只拥有跨进程、可版本化且至少有两个真实消费者的契�
 Shared 有两个顺序明确的接手批次，不得合并发布：
 
 1. **`PROTO-FEED-1`（代码与测试已收口，feed 发布已解锁）。** 帧级畸形/超限 fuzz 与旧附件/关系字段 old-new fixture 已落地并通过（`TcpProtocolFrameFuzzTests.cs`，ArchitectureTests `68/68` 通过，Release 0 warning/error）。包确定性核查结论是 `.nupkg` SHA-256 由随机 `core-properties/*.psmdcp` 文件名与随机关系 `Id` 所致；版本策略已决策为**确定性归一化后重记录**（`tools/Normalize-NupkgDeterministic.ps1` 固定 psmdcp 文件名/Id/时间戳/排序与压缩级别，CI 已接入），连续两次独立 pack+归一化逐包 hash 一致。六包 `0.4.1` 确定字节 SHA-256 已重记录于迁移文档，可复现。把不可变 feed、包清单和 locked-restore 指令交给 Gateway/Client。
-2. **`REL-WIRE-2`（必须等待）。** 只有收到 `REL-GATE-1` 的 manifest、两轮 reconcile report、故障矩阵和稳定错误码清单后，才定义关系 list/catch-up/reset wire。先写字段/预算/游标/reset 语义表，再实现唯一 DTO、JSON metadata、old/new golden 和 producer→consumer fixture。
+2. **`REL-WIRE-2`（已解锁，等待执行）。** `REL-GATE-1` 已于 2026-08-11 通过（manifest、两轮 reconcile report、故障矩阵和稳定错误码清单齐备，见 RealtimeServices `docs/NEXT-STAGE.md`）。定义关系 list/catch-up/reset wire：先写字段/预算/游标/reset 语义表，再实现唯一 DTO、JSON metadata、old/new golden 和 producer→consumer fixture。
 3. **交付 Gateway/Client。** 发布新包版本和 SHA-256，附 reserved field 清单、兼容窗口、部署顺序与回滚顺序；Gateway/Client 只消费包，不复制源码或重新声明 DTO。Realtime 内部 snapshot/checkpoint/hash 不进入外部 wire。
 4. **暂不并线。** `chatapp-tagged-v1` 可继续做离线 schema/基准，但生产协商保持关闭；关系首轮、二进制和媒体契约不得同批发布。
 
