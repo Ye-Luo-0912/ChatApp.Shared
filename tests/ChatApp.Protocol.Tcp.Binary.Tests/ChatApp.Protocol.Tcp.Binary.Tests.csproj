@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp.Binary\ChatApp.Protocol.Tcp.Binary.csproj" />
+    <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp\ChatApp.Protocol.Tcp.csproj" />
+    <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp.Json\ChatApp.Protocol.Tcp.Json.csproj" />
     <ProjectReference Include="..\..\generators\ChatApp.Protocol.Tcp.Binary.Generator\ChatApp.Protocol.Tcp.Binary.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />

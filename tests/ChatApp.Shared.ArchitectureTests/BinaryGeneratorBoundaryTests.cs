@@ -8,11 +8,11 @@ namespace ChatApp.Shared.ArchitectureTests;
 public sealed class BinaryGeneratorBoundaryTests
 {
     [Fact]
-    public void TaggedV1HasAStableIdButRemainsDisabledByDefault()
+    public void BinaryV1HasAUniqueStableIdButRemainsDisabledByDefault()
     {
-        Assert.Equal((byte)1, TaggedBinaryPayloadFormat.Version);
-        Assert.Equal("chatapp-tagged-v1", TaggedBinaryPayloadFormat.Id);
-        Assert.False(ProtocolPayloadFormat.IsValid(TaggedBinaryPayloadFormat.Id));
+        Assert.Equal((byte)1, BinaryPayloadFormat.Version);
+        Assert.Equal("chatapp-bin-v1", BinaryPayloadFormat.Id);
+        Assert.False(ProtocolPayloadFormat.IsValid(BinaryPayloadFormat.Id));
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public sealed class BinaryGeneratorBoundaryTests
     }
 
     [Fact]
-    public void RuntimeAdapterOnlyDependsOnCanonicalTcpContracts()
+    public void RuntimeSchemaPackageOnlyDependsOnCoreAndDoesNotOwnTheGenerator()
     {
         string repositoryRoot = FindRepositoryRoot();
         string projectPath = Path.Combine(
@@ -56,44 +56,143 @@ public sealed class BinaryGeneratorBoundaryTests
 
         Assert.DoesNotContain(document.Descendants(), element =>
             element.Name.LocalName is "PackageReference" or "FrameworkReference" or "Reference");
-        XElement projectReference = Assert.Single(
-            document.Descendants(),
-            element => element.Name.LocalName == "ProjectReference");
-        var referencedProjectPath = Path.GetFullPath(Path.Combine(
-            Path.GetDirectoryName(projectPath)!,
-            ((string)projectReference.Attribute("Include")!).Replace('\\', Path.DirectorySeparatorChar)));
-        var referencedProject = new FileInfo(referencedProjectPath);
-        Assert.Equal("ChatApp.Protocol.Tcp.csproj", referencedProject.Name,
-            StringComparer.OrdinalIgnoreCase);
-        Assert.Equal("ChatApp.Protocol.Tcp", referencedProject.Directory?.Name,
-            StringComparer.OrdinalIgnoreCase);
+        string[] referencedProjects = document.Descendants()
+            .Where(element => element.Name.LocalName == "ProjectReference"
+                && !string.Equals(
+                    (string?)element.Attribute("OutputItemType"),
+                    "Analyzer",
+                    StringComparison.OrdinalIgnoreCase))
+            .Select(element => Path.GetFullPath(Path.Combine(
+                Path.GetDirectoryName(projectPath)!,
+                ((string)element.Attribute("Include")!).Replace('\\', Path.DirectorySeparatorChar))))
+            .Select(path => Path.GetFileName(path))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(["ChatApp.Binary.Core.csproj"], referencedProjects);
+        Assert.DoesNotContain(document.Descendants(), element =>
+            element.Name.LocalName == "ProjectReference"
+            && string.Equals(
+                (string?)element.Attribute("OutputItemType"),
+                "Analyzer",
+                StringComparison.OrdinalIgnoreCase));
+
+        Assert.False(string.Equals(
+            "true",
+            document.Descendants()
+                .FirstOrDefault(element => element.Name.LocalName == "AllowUnsafeBlocks")
+                ?.Value,
+            StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void NativePointerCodeIsExplicitAndConfinedToOneFixedWidthHelper()
+    public void NativePointerCodeIsExplicitAndConfinedToCoreCursorIsland()
     {
         string repositoryRoot = FindRepositoryRoot();
-        string runtimeDirectory = Path.Combine(
-            repositoryRoot,
-            "src",
-            "ChatApp.Protocol.Tcp.Binary");
-        string projectPath = Path.Combine(runtimeDirectory, "ChatApp.Protocol.Tcp.Binary.csproj");
+        string sourceDirectory = Path.Combine(repositoryRoot, "src");
+        string coreDirectory = Path.Combine(
+            sourceDirectory,
+            "ChatApp.Binary.Core");
+        string projectPath = Path.Combine(coreDirectory, "ChatApp.Binary.Core.csproj");
         XDocument document = XDocument.Load(projectPath);
 
         Assert.Equal("true", GetRequiredProperty(document, "AllowUnsafeBlocks"));
 
+        string[] unsafeProjects = Directory.GetFiles(
+                sourceDirectory,
+                "*.csproj",
+                SearchOption.AllDirectories)
+            .Where(path => string.Equals(
+                XDocument.Load(path).Descendants()
+                    .FirstOrDefault(element => element.Name.LocalName == "AllowUnsafeBlocks")
+                    ?.Value,
+                "true",
+                StringComparison.OrdinalIgnoreCase))
+            .Select(path => Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(
+            ["src/ChatApp.Binary.Core/ChatApp.Binary.Core.csproj"],
+            unsafeProjects);
+
         string[] pointerFiles = Directory.GetFiles(
-                runtimeDirectory,
+                sourceDirectory,
                 "*.cs",
                 SearchOption.AllDirectories)
             .Where(path => File.ReadAllText(path).Contains("unsafe", StringComparison.Ordinal))
-            .Select(path => Path.GetFileName(path)!)
+            .Select(path => Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'))
             .Order(StringComparer.Ordinal)
             .ToArray();
-        Assert.Equal(["NativeFixedWidth.cs"], pointerFiles);
+        Assert.Equal(
+            [
+                "src/ChatApp.Binary.Core/BinaryCodec.cs",
+                "src/ChatApp.Binary.Core/BinaryReadCursor.cs",
+                "src/ChatApp.Binary.Core/BinaryWriteCursor.cs"
+            ],
+            pointerFiles);
 
-        string nativeSource = File.ReadAllText(Path.Combine(runtimeDirectory, "NativeFixedWidth.cs"));
-        Assert.DoesNotContain("System.Runtime.CompilerServices.Unsafe", nativeSource, StringComparison.Ordinal);
+        Assert.All(
+            Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.AllDirectories),
+            sourcePath => Assert.DoesNotContain(
+                "System.Runtime.CompilerServices.Unsafe",
+                File.ReadAllText(sourcePath),
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void EncoderOnlyConsumerHasNoGeneratorOrAnalyzerReference()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string projectPath = Path.Combine(
+            repositoryRoot,
+            "tests",
+            "ChatApp.Binary.EncoderOnly.Tests",
+            "ChatApp.Binary.EncoderOnly.Tests.csproj");
+        XDocument document = XDocument.Load(projectPath);
+
+        string[] projectReferences = document.Descendants()
+            .Where(element => element.Name.LocalName == "ProjectReference")
+            .Select(element => (string?)element.Attribute("Include") ?? string.Empty)
+            .ToArray();
+
+        Assert.Single(projectReferences);
+        Assert.Contains("ChatApp.Binary.Core.csproj", projectReferences[0], StringComparison.Ordinal);
+        Assert.DoesNotContain(projectReferences, reference =>
+            reference.Contains("Generator", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(document.Descendants(), element =>
+            string.Equals(
+                (string?)element.Attribute("OutputItemType"),
+                "Analyzer",
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void DiscardedExperimentalRuntimeHasNoSourceSurface()
+    {
+        string repositoryRoot = FindRepositoryRoot();
+        string[] sourceFiles =
+        [
+            .. Directory.GetFiles(Path.Combine(repositoryRoot, "src"), "*.cs", SearchOption.AllDirectories),
+            .. Directory.GetFiles(Path.Combine(repositoryRoot, "generators"), "*.cs", SearchOption.AllDirectories)
+        ];
+        string[] forbiddenSymbols =
+        [
+            "TaggedBinary",
+            "BinaryFormatProfile",
+            "BinaryMeasureCursor",
+            "ITcpBinaryCodec",
+            "TcpBinaryLimits",
+            "TcpBinaryDecodeError"
+        ];
+
+        foreach (string sourceFile in sourceFiles)
+        {
+            string source = File.ReadAllText(sourceFile);
+            foreach (string forbiddenSymbol in forbiddenSymbols)
+            {
+                Assert.DoesNotContain(forbiddenSymbol, source, StringComparison.Ordinal);
+            }
+        }
     }
 
     private static string GetRequiredProperty(XDocument document, string propertyName) =>

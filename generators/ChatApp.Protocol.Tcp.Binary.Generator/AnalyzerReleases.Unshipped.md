@@ -11,4 +11,4 @@ CTB004 | ChatApp.BinaryGenerator | Error | Described properties must be readable
 CTB005 | ChatApp.BinaryGenerator | Error | Property types must be supported
 CTB006 | ChatApp.BinaryGenerator | Error | A descriptor must define fields
 CTB007 | ChatApp.BinaryGenerator | Error | Required properties must be described
-CTB008 | ChatApp.BinaryGenerator | Error | Required nullable properties are not representable in tagged v1
+CTB008 | ChatApp.BinaryGenerator | Error | Required nullable properties are not representable in binary v1

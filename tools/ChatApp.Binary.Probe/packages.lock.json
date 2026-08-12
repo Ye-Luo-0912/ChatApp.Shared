@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "chatapp.binary.core": {
+        "type": "Project"
+      },
+      "chatapp.protocol.tcp": {
+        "type": "Project"
+      },
+      "chatapp.protocol.tcp.binary": {
+        "type": "Project",
+        "dependencies": {
+          "ChatApp.Binary.Core": "[0.5.0, )"
+        }
+      },
+      "chatapp.protocol.tcp.json": {
+        "type": "Project",
+        "dependencies": {
+          "ChatApp.Protocol.Tcp": "[0.5.0, )"
+        }
+      }
+    }
+  }
+}

@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ChatApp.Auth.Contracts\ChatApp.Auth.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\ChatApp.Binary.Core\ChatApp.Binary.Core.csproj" />
     <ProjectReference Include="..\..\src\ChatApp.Contracts.Http\ChatApp.Contracts.Http.csproj" />
     <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp\ChatApp.Protocol.Tcp.csproj" />
     <ProjectReference Include="..\..\src\ChatApp.Protocol.Tcp.Binary\ChatApp.Protocol.Tcp.Binary.csproj" />

@@ -4,8 +4,8 @@
     <PackageId>ChatApp.Protocol.Tcp.Binary.Generator</PackageId>
     <AssemblyName>ChatApp.Protocol.Tcp.Binary.Generator</AssemblyName>
     <RootNamespace>ChatApp.Shared.Protocol.Tcp.Binary.Generator</RootNamespace>
-    <Title>ChatApp tagged TCP payload codec generator</Title>
-    <Description>Build-time incremental generator for explicit ChatApp tagged TCP payload descriptors.</Description>
+    <Title>ChatApp binary TCP payload decoder generator</Title>
+    <Description>Build-time incremental generator for reflection-free ChatApp binary TCP payload decoders.</Description>
     <PackageTags>ChatApp;TCP;binary;source-generator;analyzer</PackageTags>
     <IsRoslynComponent>true</IsRoslynComponent>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>

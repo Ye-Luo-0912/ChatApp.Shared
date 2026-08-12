@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>ChatApp.Binary.Core</PackageId>
+    <AssemblyName>ChatApp.Binary.Core</AssemblyName>
+    <RootNamespace>ChatApp.Binary.Core</RootNamespace>
+    <Title>ChatApp bounded binary protocol core</Title>
+    <PackageTags>ChatApp;binary;protocol;serialization</PackageTags>
+    <Description>BCL-only single-pass encoder and bounded contiguous/segmented decoder primitives with confined native fast paths.</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+</Project>

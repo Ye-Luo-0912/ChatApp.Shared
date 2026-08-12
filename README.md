@@ -2,20 +2,19 @@
 
 `ChatApp.Shared` 是 ChatApp 各应用之间共享的跨进程契约仓库。它只承载可版本化的 wire、JSON、缓存 schema 与稳定基础类型，不承载 Redis、NATS、Entity Framework Core、ASP.NET Core、UI 或业务实现。
 
-## 可发布包
+## 当前源码候选包
 
 | 包 | 版本 | 职责 | 内部依赖 |
 | --- | --- | --- | --- |
-| `ChatApp.Auth.Contracts` | `0.4.2` | AccessToken Redis 键、缓存值 schema、账户状态与 JSON metadata | 无 |
-| `ChatApp.Contracts.Http` | `0.4.2` | Auth、好友、附件、会话 HTTP wire DTO 与 JSON metadata | 无 |
-| `ChatApp.Protocol.Tcp` | `0.4.2` | TCP 帧/命令/能力/错误，以及 Client↔Gateway 的历史、同步和附件 wire DTO | 无 |
-| `ChatApp.Protocol.Tcp.Json` | `0.4.2` | TCP DTO 的 source-generated JSON metadata 与统一序列化策略 | `ChatApp.Protocol.Tcp` |
-| `ChatApp.Protocol.Tcp.Binary` | `0.4.2` | 默认关闭的有界 tagged-binary runtime；无反射，提供 reader/writer/codec 基础 | `ChatApp.Protocol.Tcp` |
-| `ChatApp.Protocol.Tcp.Binary.Generator` | `0.4.2` | 为同一批 TCP DTO 生成 codec 的 build-time incremental generator | 无运行时依赖 |
+| `ChatApp.Auth.Contracts` | `0.5.0` | AccessToken Redis 键、缓存值 schema、账户状态与 JSON metadata | 无 |
+| `ChatApp.Binary.Core` | `0.5.0` | 与传输无关的单遍编码、有界连续/分段解码、limits/status 与受限 native-pointer fast path | 无 |
+| `ChatApp.Contracts.Http` | `0.5.0` | Auth、好友、附件、会话 HTTP wire DTO 与 JSON metadata | 无 |
+| `ChatApp.Protocol.Tcp` | `0.5.0` | TCP 帧/命令/能力/错误，以及 Client↔Gateway 的历史、同步和附件 wire DTO | 无 |
+| `ChatApp.Protocol.Tcp.Json` | `0.5.0` | TCP DTO 的 source-generated JSON metadata 与统一序列化策略 | `ChatApp.Protocol.Tcp` |
+| `ChatApp.Protocol.Tcp.Binary` | `0.5.0` | `chatapp-bin-v1` 格式身份与 TCP binary schema attributes | `ChatApp.Binary.Core` |
+| `ChatApp.Protocol.Tcp.Binary.Generator` | `0.5.0` | 只生成 decoder/diagnostics 的 build-time incremental generator | 无运行时依赖 |
 
-前五个 runtime 包为 .NET 10、BCL-only；Generator 以 netstandard2.0 analyzer 形式打包，
-Roslyn 只在构建期使用且不会进入消费者运行时。六个包统一使用 `0.4.2` 候选版本；
-Binary format 尚未加入生产协商列表，当前线上仍为 JSON。
+六个 runtime 包为 .NET 10、BCL-only；Generator 以 netstandard2.0 analyzer 形式打包，Roslyn 只在构建期使用且不会进入消费者运行时。二进制底座以 [`docs/BINARY-PROTOCOL.md`](docs/BINARY-PROTOCOL.md) 为唯一规范：encoder 是单遍普通源码，generator 只生成连续/分段 decoder。旧实验实现从未进入生产，已直接废弃；新格式为 `chatapp-bin-v1`，生产协商继续关闭，线上仍为 JSON。`0.4.2` 的包/hash 只保留为历史记录，不构成二进制兼容承诺。
 
 当前没有 `ChatApp.Shared.Primitives` 项目：尚无两个以上语义稳定的消费者，暂不建立 speculative primitives 包。未来满足共享门槛时再以真实类型、消费者矩阵和兼容性测试共同引入，不保留空 marker。
 

@@ -25,11 +25,16 @@
 Auth.Contracts
 Contracts.Http
 Protocol.Tcp <- Protocol.Tcp.Json
+Binary.Core <- Protocol.Tcp.Binary <- Client / Gateway
+                  ^
+                  | build-time Decoder.Generator
 ```
 
 箭头表示“可按真实类型需要依赖”，不是必须提前添加引用。任何 adapter/实现项目都只能依赖 contracts，contracts 不反向依赖 adapter。
 
-当前无 `Shared.Primitives` 项目。无两个以上语义稳定消费者时，不创建 speculative primitives 包或空 marker；字段相同也不能替代语义和所有权验证。
+二进制 wire/runtime/generator 规范由本仓拥有；连接协商、session、池、frame 引用计数和 buffer 生命周期由 Client/Gateway 拥有。Binary V1 encoder 必须是无生成器依赖的普通源码，generator 只负责 decoder，native pointer 仅限 Core 内部有界 fast path。旧实验实现从未上线，不保留兼容层；权威规范见 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)。
+
+当前无泛化的 `Shared.Primitives` 项目。`ChatApp.Binary.Core` 是用户已授权、明确面向 TCP Binary 与 Client/Gateway 的有界 codec 底座候选，不是任意业务 primitives 收纳箱；正式发布/启用仍须真实 DTO 和两个消费者接入。除此之外，无两个以上语义稳定消费者时，不创建 speculative primitives 包或空 marker；字段相同也不能替代语义和所有权验证。
 
 ## 兼容性与 namespace 迁移
 

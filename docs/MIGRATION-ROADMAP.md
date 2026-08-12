@@ -8,7 +8,7 @@
 | Auth、好友、附件、会话 HTTP DTO | `ChatApp.Contracts.Http` `0.4.1` | Client、Server Host | 两端直接使用共享 wire DTO；Server Core 保持 BCL-only，并在 Host 边界显式映射 |
 | TCP 帧头、控制 DTO、历史/同步/附件业务 DTO | `ChatApp.Protocol.Tcp` `0.4.1` | Client、TCP Gateway | 两端已删除历史/同步同义 DTO；Gateway 显式映射 Realtime owner，Client 直接消费唯一 wire schema |
 | TCP JSON metadata | `ChatApp.Protocol.Tcp.Json` `0.4.1` | Client、TCP Gateway、协议兼容测试 | 提供统一 source-generated JSON 入口；golden 固定 null、时间单位、reset 与游标语义 |
-| TCP tagged-binary 候选 | `ChatApp.Protocol.Tcp.Binary` / `.Generator` `0.4.1` | Client、TCP Gateway（待接入） | runtime BCL-only、generator 仅构建期；格式默认不可协商，生产继续 JSON |
+| TCP binary 历史实验包 | `ChatApp.Protocol.Tcp.Binary` / `.Generator` `0.4.1` | 无生产消费者 | 从未启用；其 API/格式不属于 `chatapp-bin-v1` 的兼容面，生产继续 JSON |
 | Realtime DTO 与集成接口 | `ChatApp.Realtime.Contracts` `2.5.2`、`ChatApp.Realtime.Integration` `3.1.3` | RealtimeServices、Server、TCP Gateway | Contracts 延续既有 2.x 谱系；Integration 因公开 Outbox 类型迁出而按 breaking change 升至 3.x；消费者使用包引用，不依赖 sibling 源码目录 |
 | Realtime EF Outbox 模型与映射 | `ChatApp.Realtime.Outbox.EntityFrameworkCore` `1.0.0` | Server | 从 NATS Integration 包剥离；只有需要 EF Outbox 的宿主引用，Gateway/PushWorker 不再传递依赖 EF Core |
 | 通用基础类型 | 暂不建立项目 | 暂无两个以上语义稳定消费者 | 已删除空 `Primitives` marker，避免无实际类型的预设依赖 |
@@ -100,6 +100,22 @@ REL-WIRE-2 的 list 只读 + sync/catch-up 两个 wire 能力在 `0.4.1` 记录�
 
 联调客户端构建 Release `0 warning / 0 error`，运行终止码 0（PASSED）。剩余开 capability 门禁：Realtime 关系投影 reconcile gate 两轮有界分页/状态不变/全量指纹校验通过。
 
+## 0.5.0 全新二进制底座候选（2026-08-12）
+
+旧实验二进制从未被 Client、Gateway、Server 或 Realtime 引用，因此本批直接废弃其 reader/writer、format ID、codec facade 与兼容语义。首个候选格式改为 `chatapp-bin-v1`：BCL-only Core 提供单遍 Span encoder 和有界连续/分段 decoder，Generator 只生成 decoder；生产协商仍关闭。先前工作树的兼容包/hash 全部作废。最终提交必须由 CI clean pack/normalize 两次、比较并记录七包发布 hash；`0.4.2` 历史表只作为历史记录保持不变。
+
+breaking 重构代码已完成：新 fixture 覆盖 17 种字段形态，golden SHA-256 为 `9CAF417B6B6CE9D79DE722D94C8609C23AD2AFA5CF8DF5058F09081C6CFC1DB4`；strict order、unknown/required/limits、每前缀截断、deterministic fuzz，以及连续 Core 与逐字节分段 Core 的成功值/精确 status 差分均已通过。locked restore 和 Release 构建 0 warning/error，全套 `171/171`（Core 37、Binary 21、Generator 15、Encoder-only 1、Architecture 97）通过。
+
+先前微探针说明 measured `IBufferWriter` 的两遍 schema 遍历会抵消 writer 调用减少，因此新热路径只保留 caller-owned Span 单遍编码。最终底座在 Windows x64/.NET 10 的三进程方向性探针中，32 B/1 KiB body encode 分别为 `21.2–23.8 ns` / `38.3–40.2 ns` 且均为 `0 B/op`；连续 owning decode 为 `29.2–31.0 ns` / `68.8–79.4 ns`，分配只包含最终 DTO/byte[]。这些三字段结果不能替代真实业务门禁；发布/协商前仍需真实 Chat/History/Sync encoder、Gateway/Client 隔离消费、Linux x64/Arm64 与端到端短测，失败时继续使用 JSON。
+
+BIN-SCHEMA-2 corpus 证据已补齐：消费者侧 schema 选择 canonical TCP `ClientHello` 和扁平 `MessageHistoryRequest`，`RealTcpBinarySchemaTests` `21/21` 通过。Binary golden SHA-256 分别为 `ClientHello AA2A83D7D5F61D3522FAEACF3091773D348325D816D4FBF03EC9E2EBD386B2AC`、`MessageHistoryRequest BCF897F4F71D3912D6159395FDBE0F1D783BB3DC4B03EA6482F00D86C4163AD0`；canonical payload 分别为 `42 B` 和 `66 B`，同一 JSON fixture 为 `151 B` 和 `199 B`。新增 corpus 的 binary/JSON payload 分别为：ClientHello default `6/54 B`、string-heavy `1305/2184 B`、max-legal `2078/3217 B`；MessageHistoryRequest default `2/12 B`、string-heavy `2077/2974 B`、max-legal `3452/4613 B`。Windows x64/.NET 10 Release Probe 的 canonical span binary encode/decode 为 `64.3/93.0 ns/op, 0/152 B/op` 与 `138.2/157.4 ns/op, 0/272 B/op`；对应 JSON encode/decode 为 `206.9/1118.8 ns/op, 176.3/152 B/op` 与 `306.0/556.7 ns/op, 224.2/272 B/op`。Probe 已记录各 corpus 的 binary hash、连续/分段 decode、ns/op/B/op 和 invalid UTF-8/truncation malformed case；当前真实 TCP DTO 没有 canonical bytes 字段，bytes-heavy 只由 Core 1,024-byte workload 覆盖，不猜测业务字段。生产握手、Resume 和 capability 继续关闭 binary；`MessageHistoryItem` nested/list 延后到真实模型冻结。
+
+消费者接入前置检查（2026-08-12）：`Chat_App` 与 `ChatAppTCP_Server` 的 `packages/` 和 lock file 仍固定 `ChatApp.Protocol.Tcp 0.4.2` / `ChatApp.Protocol.Tcp.Json 0.4.2`，没有 `ChatApp.Protocol.Tcp.Binary 0.5.0` 或 generator 包；Client 使用 `JsonPacketBodySerializer`，Gateway 使用 JSON `IPayloadCodec<T>`，ServerHello 的 `PayloadFormat` 仍为 `json`。Shared 0.5.0 包已绑定本候选不可变提交并完成 clean pack，但尚未发布为消费者 feed。故本批不改两端、不恢复 sibling ProjectReference、不打开 binary capability；须先完成审核、七包 feed/hash 校验，再由消费者各自锁包并做 binary-only fixture 与 JSON smoke。
+
+本候选不可变提交的 detached clean checkout 已完成 locked restore、Release build/test、两次 clean pack+normalize，七包集合与逐包 SHA-256 一致，且 Core/Binary/Generator 包拓扑符合边界；脏工作树工件不作为 feed 校验值。当前仍需审核后发布到内部 feed，发布不自动打开生产 binary capability。
+
+正式 clean pack 已在本候选不可变 checkout 中完成：两次 clean pack+normalize 的七包逐项一致。最终发布流程将把该 checkout 生成的 `SHA256SUMS.txt` 与 nupkg 一起作为 CI/release artifact 保存；不把 hash 表写回源码文档，避免 NuGet nuspec 的 repository commit 元数据造成自引用漂移。
+
 ## 独立构建验证快照（2026-08-06，历史基线）
 
 | 仓库 | 锁定还原 / Release 构建 | 测试结果 |
@@ -114,7 +130,7 @@ REL-WIRE-2 的 list 只读 + sync/catch-up 两个 wire 能力在 `0.4.1` 记录�
 
 ## 发布与部署顺序
 
-1. Shared CI 对六个 `0.4.1` 包执行一次构建、测试、打包并产出 SHA-256 清单；Realtime 发布流水线分别产出 `Contracts 2.5.2`、`Integration 3.1.3` 与 `Outbox.EntityFrameworkCore 1.0.0`。审核后只把这些不可变候选发布到内部 NuGet feed；仓库内 `packages/` 只作为离线、CI 和迁移期的可复现来源。
+1. Shared CI 对当前版本的预期包集合执行 locked restore、一次 Release build/test、两次独立 pack+normalize 和逐包 SHA-256 比较；当前 `0.5.0` 集合为六个 runtime 包加一个 analyzer 包。Realtime 发布流水线独立产出自身版本谱系。审核后只把绑定不可变 commit 的候选发布到内部 NuGet feed；仓库内 `packages/` 只作为离线、CI 和迁移期来源。
 2. 在发布流水线中验证包 hash 后，再部署 Server、Gateway 与 Client；禁止恢复 sibling `ProjectReference` 或源码路径 fallback。
 3. Client 升级时同时应用 SQLite `deviceCredential` 迁移；Server 与 Gateway 应作为同一认证缓存契约批次部署。
 4. Gateway watcher 在过渡期同时读取 canonical `watchers:*` 与旧 `pw:*`，并双写两套结构。全部旧实例下线后至少等待旧 key 最大 TTL（当前 30 分钟）及观测缓冲，再删除 `pw:*` 兼容路径。

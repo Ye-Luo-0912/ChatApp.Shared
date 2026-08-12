@@ -30,29 +30,48 @@ jobs:
       - name: Test
         run: dotnet test ChatApp.Shared.slnx --configuration Release --no-build --no-restore
 
-      - name: Pack once
-        run: dotnet pack ChatApp.Shared.slnx --configuration Release --no-build --no-restore --output artifacts/packages
-
-      - name: Normalize packages for deterministic bytes
+      - name: Pack twice from the immutable checkout
         shell: pwsh
-        run: pwsh -NoProfile -File tools/Normalize-NupkgDeterministic.ps1 -PackagesDir artifacts/packages
+        run: |
+          dotnet pack ChatApp.Shared.slnx --configuration Release --no-build --no-restore --output artifacts/packages-a
+          dotnet pack ChatApp.Shared.slnx --configuration Release --no-build --no-restore --output artifacts/packages-b
 
-      - name: Verify package set and write checksums
+      - name: Normalize both package sets for deterministic bytes
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File tools/Normalize-NupkgDeterministic.ps1 -PackagesDir artifacts/packages-a
+          pwsh -NoProfile -File tools/Normalize-NupkgDeterministic.ps1 -PackagesDir artifacts/packages-b
+
+      - name: Verify package sets, deterministic bytes, and write checksums
         shell: pwsh
         run: |
           $expected = @(
-            'ChatApp.Auth.Contracts.0.4.2.nupkg',
-            'ChatApp.Contracts.Http.0.4.2.nupkg',
-            'ChatApp.Protocol.Tcp.0.4.2.nupkg',
-            'ChatApp.Protocol.Tcp.Binary.0.4.2.nupkg',
-            'ChatApp.Protocol.Tcp.Binary.Generator.0.4.2.nupkg',
-            'ChatApp.Protocol.Tcp.Json.0.4.2.nupkg'
+            'ChatApp.Auth.Contracts.0.5.0.nupkg',
+            'ChatApp.Binary.Core.0.5.0.nupkg',
+            'ChatApp.Contracts.Http.0.5.0.nupkg',
+            'ChatApp.Protocol.Tcp.0.5.0.nupkg',
+            'ChatApp.Protocol.Tcp.Binary.0.5.0.nupkg',
+            'ChatApp.Protocol.Tcp.Binary.Generator.0.5.0.nupkg',
+            'ChatApp.Protocol.Tcp.Json.0.5.0.nupkg'
           )
-          $actual = @(Get-ChildItem artifacts/packages -Filter *.nupkg | Sort-Object Name | ForEach-Object Name)
-          $difference = @(Compare-Object ($expected | Sort-Object) $actual)
-          if ($difference.Count -ne 0) {
-            throw "Unexpected package set: $($actual -join ', ')"
+          foreach ($directory in @('artifacts/packages-a', 'artifacts/packages-b')) {
+            $actual = @(Get-ChildItem $directory -Filter *.nupkg | Sort-Object Name | ForEach-Object Name)
+            $difference = @(Compare-Object ($expected | Sort-Object) $actual)
+            if ($difference.Count -ne 0) {
+              throw "Unexpected package set in ${directory}: $($actual -join ', ')"
+            }
           }
+
+          foreach ($name in $expected) {
+            $a = (Get-FileHash (Join-Path 'artifacts/packages-a' $name) -Algorithm SHA256).Hash
+            $b = (Get-FileHash (Join-Path 'artifacts/packages-b' $name) -Algorithm SHA256).Hash
+            if ($a -ne $b) {
+              throw "Non-deterministic package bytes for ${name}: $a != $b"
+            }
+          }
+
+          New-Item -ItemType Directory -Path artifacts/packages | Out-Null
+          Copy-Item artifacts/packages-a/*.nupkg artifacts/packages/
           Get-ChildItem artifacts/packages -Filter *.nupkg |
             Sort-Object Name |
             ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash, $_.Name } |

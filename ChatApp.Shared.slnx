@@ -1,11 +1,15 @@
 <Solution>
   <Project Path="src/ChatApp.Auth.Contracts/ChatApp.Auth.Contracts.csproj" />
+  <Project Path="src/ChatApp.Binary.Core/ChatApp.Binary.Core.csproj" />
   <Project Path="src/ChatApp.Contracts.Http/ChatApp.Contracts.Http.csproj" />
   <Project Path="src/ChatApp.Protocol.Tcp/ChatApp.Protocol.Tcp.csproj" />
   <Project Path="src/ChatApp.Protocol.Tcp.Binary/ChatApp.Protocol.Tcp.Binary.csproj" />
   <Project Path="src/ChatApp.Protocol.Tcp.Json/ChatApp.Protocol.Tcp.Json.csproj" />
   <Project Path="generators/ChatApp.Protocol.Tcp.Binary.Generator/ChatApp.Protocol.Tcp.Binary.Generator.csproj" />
   <Project Path="tests/ChatApp.Protocol.Tcp.Binary.Generator.Tests/ChatApp.Protocol.Tcp.Binary.Generator.Tests.csproj" />
+  <Project Path="tests/ChatApp.Binary.Core.Tests/ChatApp.Binary.Core.Tests.csproj" />
+  <Project Path="tests/ChatApp.Binary.EncoderOnly.Tests/ChatApp.Binary.EncoderOnly.Tests.csproj" />
   <Project Path="tests/ChatApp.Protocol.Tcp.Binary.Tests/ChatApp.Protocol.Tcp.Binary.Tests.csproj" />
   <Project Path="tests/ChatApp.Shared.ArchitectureTests/ChatApp.Shared.ArchitectureTests.csproj" />
+  <Project Path="tools/ChatApp.Binary.Probe/ChatApp.Binary.Probe.csproj" />
 </Solution>

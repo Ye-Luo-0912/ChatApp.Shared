@@ -1,3 +1,5 @@
+using ChatApp.Binary.Core;
+using ChatApp.Shared.Protocol.Tcp.Binary;
 using ChatApp.Shared.Protocol.Tcp.Binary.Generation;
 
 namespace ChatApp.Protocol.Tcp.Binary.Tests;
@@ -46,24 +48,93 @@ internal sealed class BinaryContractFixture
 }
 
 [TcpBinaryContract(typeof(BinaryContractFixture))]
-[TcpBinaryField(1, nameof(BinaryContractFixture.Id))]
-[TcpBinaryField(2, nameof(BinaryContractFixture.Delta))]
-[TcpBinaryField(3, nameof(BinaryContractFixture.Count))]
-[TcpBinaryField(4, nameof(BinaryContractFixture.Enabled))]
-[TcpBinaryField(5, nameof(BinaryContractFixture.Name))]
-[TcpBinaryField(6, nameof(BinaryContractFixture.Note))]
-[TcpBinaryField(7, nameof(BinaryContractFixture.Data))]
-[TcpBinaryField(8, nameof(BinaryContractFixture.OptionalNumber))]
-[TcpBinaryField(9, nameof(BinaryContractFixture.State))]
-[TcpBinaryField(10, nameof(BinaryContractFixture.Score))]
-[TcpBinaryField(11, nameof(BinaryContractFixture.SByteValue))]
-[TcpBinaryField(12, nameof(BinaryContractFixture.ByteValue))]
-[TcpBinaryField(13, nameof(BinaryContractFixture.ShortValue))]
-[TcpBinaryField(14, nameof(BinaryContractFixture.UShortValue))]
-[TcpBinaryField(15, nameof(BinaryContractFixture.ULongValue))]
-[TcpBinaryField(16, nameof(BinaryContractFixture.FloatValue))]
-[TcpBinaryField(17, nameof(BinaryContractFixture.OptionalState))]
-internal static partial class BinaryContractFixtureDescriptor;
+[TcpBinaryField(BinaryContractFixtureEncoder.IdField, nameof(BinaryContractFixture.Id))]
+[TcpBinaryField(BinaryContractFixtureEncoder.DeltaField, nameof(BinaryContractFixture.Delta))]
+[TcpBinaryField(BinaryContractFixtureEncoder.CountField, nameof(BinaryContractFixture.Count))]
+[TcpBinaryField(BinaryContractFixtureEncoder.EnabledField, nameof(BinaryContractFixture.Enabled))]
+[TcpBinaryField(BinaryContractFixtureEncoder.NameField, nameof(BinaryContractFixture.Name))]
+[TcpBinaryField(BinaryContractFixtureEncoder.NoteField, nameof(BinaryContractFixture.Note))]
+[TcpBinaryField(BinaryContractFixtureEncoder.DataField, nameof(BinaryContractFixture.Data))]
+[TcpBinaryField(BinaryContractFixtureEncoder.OptionalNumberField, nameof(BinaryContractFixture.OptionalNumber))]
+[TcpBinaryField(BinaryContractFixtureEncoder.StateField, nameof(BinaryContractFixture.State))]
+[TcpBinaryField(BinaryContractFixtureEncoder.ScoreField, nameof(BinaryContractFixture.Score))]
+[TcpBinaryField(BinaryContractFixtureEncoder.SByteValueField, nameof(BinaryContractFixture.SByteValue))]
+[TcpBinaryField(BinaryContractFixtureEncoder.ByteValueField, nameof(BinaryContractFixture.ByteValue))]
+[TcpBinaryField(BinaryContractFixtureEncoder.ShortValueField, nameof(BinaryContractFixture.ShortValue))]
+[TcpBinaryField(BinaryContractFixtureEncoder.UShortValueField, nameof(BinaryContractFixture.UShortValue))]
+[TcpBinaryField(BinaryContractFixtureEncoder.ULongValueField, nameof(BinaryContractFixture.ULongValue))]
+[TcpBinaryField(BinaryContractFixtureEncoder.FloatValueField, nameof(BinaryContractFixture.FloatValue))]
+[TcpBinaryField(BinaryContractFixtureEncoder.OptionalStateField, nameof(BinaryContractFixture.OptionalState))]
+internal static partial class BinaryContractFixtureDescriptor
+{
+    public static BinaryStatus TryEncode(
+        in BinaryContractFixture value,
+        Span<byte> destination,
+        BinaryLimits limits,
+        out int written) =>
+        BinaryCodec.TryEncode<BinaryContractFixtureEncoder, BinaryContractFixture>(
+            in value,
+            destination,
+            limits,
+            out written);
+}
+
+internal readonly struct BinaryContractFixtureEncoder :
+    IBinaryEncoder<BinaryContractFixtureEncoder, BinaryContractFixture>
+{
+    internal const int IdField = 1;
+    internal const int DeltaField = 2;
+    internal const int CountField = 3;
+    internal const int EnabledField = 4;
+    internal const int NameField = 5;
+    internal const int NoteField = 6;
+    internal const int DataField = 7;
+    internal const int OptionalNumberField = 8;
+    internal const int StateField = 9;
+    internal const int ScoreField = 10;
+    internal const int SByteValueField = 11;
+    internal const int ByteValueField = 12;
+    internal const int ShortValueField = 13;
+    internal const int UShortValueField = 14;
+    internal const int ULongValueField = 15;
+    internal const int FloatValueField = 16;
+    internal const int OptionalStateField = 17;
+
+    public static BinaryStatus Write(ref BinaryWriteCursor writer, in BinaryContractFixture value)
+    {
+        writer.WriteInt32(IdField, value.Id);
+        writer.WriteInt64(DeltaField, value.Delta);
+        writer.WriteUInt32(CountField, value.Count);
+        writer.WriteBool(EnabledField, value.Enabled);
+        writer.WriteString(NameField, value.Name);
+        if (value.Note is { } note)
+        {
+            writer.WriteString(NoteField, note);
+        }
+
+        ReadOnlySpan<byte> data = value.Data;
+        writer.WriteBytes(DataField, data);
+        if (value.OptionalNumber is { } optionalNumber)
+        {
+            writer.WriteInt32(OptionalNumberField, optionalNumber);
+        }
+
+        writer.WriteInt32(StateField, (short)value.State);
+        writer.WriteDouble(ScoreField, value.Score);
+        writer.WriteInt32(SByteValueField, value.SByteValue);
+        writer.WriteUInt32(ByteValueField, value.ByteValue);
+        writer.WriteInt32(ShortValueField, value.ShortValue);
+        writer.WriteUInt32(UShortValueField, value.UShortValue);
+        writer.WriteUInt64(ULongValueField, value.ULongValue);
+        writer.WriteSingle(FloatValueField, value.FloatValue);
+        if (value.OptionalState is { } optionalState)
+        {
+            writer.WriteInt32(OptionalStateField, (short)optionalState);
+        }
+
+        return writer.Status;
+    }
+}
 
 internal sealed class RequiredBinaryContractFixture
 {
@@ -71,5 +142,28 @@ internal sealed class RequiredBinaryContractFixture
 }
 
 [TcpBinaryContract(typeof(RequiredBinaryContractFixture))]
-[TcpBinaryField(1, nameof(RequiredBinaryContractFixture.RequiredId))]
-internal static partial class RequiredBinaryContractFixtureDescriptor;
+[TcpBinaryField(RequiredBinaryContractFixtureEncoder.RequiredIdField, nameof(RequiredBinaryContractFixture.RequiredId))]
+internal static partial class RequiredBinaryContractFixtureDescriptor
+{
+    public static BinaryStatus TryEncode(
+        in RequiredBinaryContractFixture value,
+        Span<byte> destination,
+        BinaryLimits limits,
+        out int written) =>
+        BinaryCodec.TryEncode<RequiredBinaryContractFixtureEncoder, RequiredBinaryContractFixture>(
+            in value,
+            destination,
+            limits,
+            out written);
+}
+
+internal readonly struct RequiredBinaryContractFixtureEncoder :
+    IBinaryEncoder<RequiredBinaryContractFixtureEncoder, RequiredBinaryContractFixture>
+{
+    internal const int RequiredIdField = 1;
+
+    public static BinaryStatus Write(
+        ref BinaryWriteCursor writer,
+        in RequiredBinaryContractFixture value) =>
+        writer.WriteInt32(RequiredIdField, value.RequiredId);
+}

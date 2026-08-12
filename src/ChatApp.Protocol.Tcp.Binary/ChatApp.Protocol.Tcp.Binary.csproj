@@ -4,13 +4,12 @@
     <PackageId>ChatApp.Protocol.Tcp.Binary</PackageId>
     <AssemblyName>ChatApp.Protocol.Tcp.Binary</AssemblyName>
     <RootNamespace>ChatApp.Shared.Protocol.Tcp.Binary</RootNamespace>
-    <Title>ChatApp bounded tagged TCP payload primitives</Title>
-    <PackageTags>ChatApp;contracts;TCP;protocol;binary;tagged</PackageTags>
-    <Description>BCL-only bounded tagged payload primitives and codec abstractions for ChatApp TCP contracts.</Description>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Title>ChatApp TCP binary protocol schema surface</Title>
+    <PackageTags>ChatApp;contracts;TCP;protocol;binary</PackageTags>
+    <Description>Format identity and source schema metadata for the reflection-free ChatApp TCP binary protocol.</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ChatApp.Protocol.Tcp\ChatApp.Protocol.Tcp.csproj" />
+    <ProjectReference Include="..\ChatApp.Binary.Core\ChatApp.Binary.Core.csproj" />
   </ItemGroup>
 </Project>
