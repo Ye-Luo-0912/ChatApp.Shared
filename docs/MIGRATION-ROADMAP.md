@@ -100,6 +100,16 @@ REL-WIRE-2 的 list 只读 + sync/catch-up 两个 wire 能力在 `0.4.1` 记录�
 
 联调客户端构建 Release `0 warning / 0 error`，运行终止码 0（PASSED）。剩余开 capability 门禁：Realtime 关系投影 reconcile gate 两轮有界分页/状态不变/全量指纹校验通过。
 
+## 0.4.2 关系投影 reconcile gate 两轮校验证据（2026-08-12）
+
+开 capability 前的最后一道门禁已通过。Realtime（Development，8080）从事实源 Server（`http://127.0.0.1:5200`，导出端点 `X-Relationship-Projection-Key: reconcile-test-key`）启用 `RelationshipProjectionRebuild` 拉取投影快照，Rebuilder 稳定后（`stablePasses=3`、6 条流 baseline 一致、投影项 8 条），用 `scripts/Invoke-RelationshipProjectionReconcile.ps1`（`CHATAPP_OPS_API_KEY=reconcile-ops-key`，`-RequiredCleanPasses 2`）在 Realtime `/ops/relationship-projection/reconcile` 上完成两轮有界分页/状态不变/全量指纹校验：
+
+- **Pass 1**：状态 token 前后一致（`passNumber=4;stablePasses=3;passChanged=False;versionStreamCount=6;snapshotBaselineStreamCount=6;streamsWithoutSnapshotBaselineCount=0;projectionItemCount=8;inboxEventCount=0`），`mismatchCount=0`，单页 200，指纹 `97E522BB719D6ADE7BEE351F99A60B9686390FBAB0DAAF6D83AB5F25AFE049DE`。
+- **Pass 2**：状态 token 前后一致，`mismatchCount=0`，指纹与 Pass 1 完全一致。
+- 报告 `gatePassed=true`，6 条流全部匹配、无差异。报告落盘 `ChatApp.RealtimeServices/.artifacts/relationship-projection-reconcile/20260811T201857Z/report.json`。
+
+至此 REL-WIRE-2 开 capability 的剩余拦项（真实跨进程短时 TCP JSON 联调 + `0.4.2` 关系投影 reconcile gate 两轮校验）全部清除。
+
 ## 0.5.0 全新二进制底座候选（2026-08-12）
 
 旧实验二进制从未被 Client、Gateway、Server 或 Realtime 引用，因此本批直接废弃其 reader/writer、format ID、codec facade 与兼容语义。首个候选格式改为 `chatapp-bin-v1`：BCL-only Core 提供单遍 Span encoder 和有界连续/分段 decoder，Generator 只生成 decoder；生产协商仍关闭。先前工作树的兼容包/hash 全部作废。最终提交必须由 CI clean pack/normalize 两次、比较并记录七包发布 hash；`0.4.2` 历史表只作为历史记录保持不变。
