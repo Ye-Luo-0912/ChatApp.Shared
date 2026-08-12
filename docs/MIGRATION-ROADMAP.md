@@ -1,4 +1,4 @@
-# 共享契约迁移状态与发布路线
+# 共享契约迁移状态与历史记录
 
 ## 已完成状态（Shared 0.4.1 / Realtime 2.x）
 
@@ -110,21 +110,30 @@ REL-WIRE-2 的 list 只读 + sync/catch-up 两个 wire 能力在 `0.4.1` 记录�
 
 至此 REL-WIRE-2 开 capability 的剩余拦项（真实跨进程短时 TCP JSON 联调 + `0.4.2` 关系投影 reconcile gate 两轮校验）全部清除。
 
+## REL-READ-3 关系投影同源对照读取端证据（2026-08-12）
+
+reconcile gate 覆盖「Server 权威快照 → 投影」的写入端一致；本批补充「投影 → list/catch-up 读取」的读取端同源对照，两段合起来构成 Server 权威为唯一事实源、客户端从 snapshot 后仅靠增量收敛的完整闭环。
+
+- 新增 `ChatApp.Realtime.IntegrationTests.RelationshipProjectionSourceParityTests`（6/6 通过）：以内存 Server authority 驱动真实 Postgres 投影（`NpgsqlRelationshipProjectionStore` + `NpgsqlRelationshipProjectionQueryStore`），逐项验证读取与权威一致。每个用例使用独立 owner，避免共享 Postgres 中 `(owner,list)` 流版本在用例间互相污染。
+- 覆盖场景：快照后仅靠增量收敛（好友/申请/黑名单逐项对照）、分页期间并发 mutation → `VersionChanged` 禁止静默返回过期页、重复 cursor 同页稳定延续（断线续页语义）、无 snapshot checkpoint 时 fail-closed 返回 `Unavailable`、删除项从列表消失且 history 仍推进、重复 delta 幂等重放仍收敛。
+- 与 catch-up 语义闭环一致：gap/保留期越界由 `DefaultSyncBootstrapQueryProcessor` fail-closed 置 `ResetRequired`（`beyond_retention` / `projection_unavailable`）而非返回伪空成功；关闭读取开关后 `UnavailableRelationshipProjectionStore` 仍 fail-closed；旧关系写表不参与任何在线结果。
+- 结果：`ChatApp.Realtime.IntegrationTests` 全套 `94/94` 通过（含本批 6 个同源对照用例）。仅触及 Realtime 测试项目，不改变任何 `0.4.2`/`0.5.0` 包源码或元数据。
+
 ## 0.5.0 全新二进制底座候选（2026-08-12）
 
-旧实验二进制从未被 Client、Gateway、Server 或 Realtime 引用，因此本批直接废弃其 reader/writer、format ID、codec facade 与兼容语义。首个候选格式改为 `chatapp-bin-v1`：BCL-only Core 提供单遍 Span encoder 和有界连续/分段 decoder，Generator 只生成 decoder；生产协商仍关闭。先前工作树的兼容包/hash 全部作废。最终提交必须由 CI clean pack/normalize 两次、比较并记录七包发布 hash；`0.4.2` 历史表只作为历史记录保持不变。
+旧实验二进制从未被 Client、Gateway、Server 或 Realtime 引用，因此本批直接废弃其 reader/writer、format ID、codec facade 与兼容语义。首个候选格式改为 `chatapp-bin-v1`：BCL-only Core 提供单遍 Span encoder 和有界连续/分段 decoder，Generator 只生成 decoder；生产协商仍关闭。先前工作树的兼容包/hash 全部作废；`0.4.2` 历史表只作为历史记录保持不变。
 
 breaking 重构代码已完成：新 fixture 覆盖 17 种字段形态，golden SHA-256 为 `9CAF417B6B6CE9D79DE722D94C8609C23AD2AFA5CF8DF5058F09081C6CFC1DB4`；strict order、unknown/required/limits、每前缀截断、deterministic fuzz，以及连续 Core 与逐字节分段 Core 的成功值/精确 status 差分均已通过。locked restore 和 Release 构建 0 warning/error，全套 `171/171`（Core 37、Binary 21、Generator 15、Encoder-only 1、Architecture 97）通过。
 
-先前微探针说明 measured `IBufferWriter` 的两遍 schema 遍历会抵消 writer 调用减少，因此新热路径只保留 caller-owned Span 单遍编码。最终底座在 Windows x64/.NET 10 的三进程方向性探针中，32 B/1 KiB body encode 分别为 `21.2–23.8 ns` / `38.3–40.2 ns` 且均为 `0 B/op`；连续 owning decode 为 `29.2–31.0 ns` / `68.8–79.4 ns`，分配只包含最终 DTO/byte[]。这些三字段结果不能替代真实业务门禁；发布/协商前仍需真实 Chat/History/Sync encoder、Gateway/Client 隔离消费、Linux x64/Arm64 与端到端短测，失败时继续使用 JSON。
+先前微探针说明 measured `IBufferWriter` 的两遍 schema 遍历会抵消 writer 调用减少，因此新热路径只保留 caller-owned Span 单遍编码。最终底座在 Windows x64/.NET 10 的三进程方向性探针中，32 B/1 KiB body encode 分别为 `21.2–23.8 ns` / `38.3–40.2 ns` 且均为 `0 B/op`；连续 owning decode 为 `29.2–31.0 ns` / `68.8–79.4 ns`，分配只包含最终 DTO/byte[]。这些三字段结果不能替代真实业务结论；接入前仍需真实 Chat/History/Sync schema、Gateway/Client 隔离消费、Linux x64/Arm64 与端到端短测，失败时继续使用 JSON。
 
 BIN-SCHEMA-2 corpus 证据已补齐：消费者侧 schema 选择 canonical TCP `ClientHello` 和扁平 `MessageHistoryRequest`，`RealTcpBinarySchemaTests` `21/21` 通过。Binary golden SHA-256 分别为 `ClientHello AA2A83D7D5F61D3522FAEACF3091773D348325D816D4FBF03EC9E2EBD386B2AC`、`MessageHistoryRequest BCF897F4F71D3912D6159395FDBE0F1D783BB3DC4B03EA6482F00D86C4163AD0`；canonical payload 分别为 `42 B` 和 `66 B`，同一 JSON fixture 为 `151 B` 和 `199 B`。新增 corpus 的 binary/JSON payload 分别为：ClientHello default `6/54 B`、string-heavy `1305/2184 B`、max-legal `2078/3217 B`；MessageHistoryRequest default `2/12 B`、string-heavy `2077/2974 B`、max-legal `3452/4613 B`。Windows x64/.NET 10 Release Probe 的 canonical span binary encode/decode 为 `64.3/93.0 ns/op, 0/152 B/op` 与 `138.2/157.4 ns/op, 0/272 B/op`；对应 JSON encode/decode 为 `206.9/1118.8 ns/op, 176.3/152 B/op` 与 `306.0/556.7 ns/op, 224.2/272 B/op`。Probe 已记录各 corpus 的 binary hash、连续/分段 decode、ns/op/B/op 和 invalid UTF-8/truncation malformed case；当前真实 TCP DTO 没有 canonical bytes 字段，bytes-heavy 只由 Core 1,024-byte workload 覆盖，不猜测业务字段。生产握手、Resume 和 capability 继续关闭 binary；`MessageHistoryItem` nested/list 延后到真实模型冻结。
 
 消费者接入验证（2026-08-12）：`Chat_App` 与 `ChatAppTCP_Server` 已仅将 `ChatApp.Protocol.Tcp` / `ChatApp.Protocol.Tcp.Json` 升级至 `0.5.0`，并在各自 `packages/` 离线 feed 与 lock file 下通过 locked restore、Release build。Client 全套 `283/283` 通过；Gateway 串行测试 `566/566` 通过，Redis 互操作 1 项因未设置 `CHATAPP_TEST_REDIS` 跳过。Gateway 默认并行执行稳定只有既有的 `DirectSocket + PersistentSendLoop` 参数化用例失败，单独执行该方法 `6/6` 通过，暂按测试并发隔离问题记录。两端均没有 `ChatApp.Protocol.Tcp.Binary`、`ChatApp.Binary.Core` 或 generator，Client 仍使用 `JsonPacketBodySerializer`，Gateway 仍使用 JSON `IPayloadCodec<T>`，握手、Resume 和 `ServerHello.PayloadFormat` 仍为 `json`；生产 binary capability 继续关闭。
 
-本候选不可变提交的 detached clean checkout 已完成 locked restore、Release build/test、两次 clean pack+normalize，七包集合与逐包 SHA-256 一致，且 Core/Binary/Generator 包拓扑符合边界；0.5.0 JSON 包已完成 Client/Gateway 本地离线 feed 的短时隔离消费验证。脏工作树工件不作为 feed 校验值。当前仍需审核后发布到内部 feed，发布不自动打开生产 binary capability。
+本候选不可变提交的 detached clean checkout 已完成 locked restore、Release build/test、两次 clean pack+normalize，七包集合与逐包 SHA-256 一致，且 Core/Binary/Generator 包拓扑符合边界；0.5.0 JSON 包已完成 Client/Gateway 本地离线消费验证。该段只记录已完成证据，不是下一阶段前置条件；生产 binary capability 继续关闭。
 
-正式 clean pack 已在本候选不可变 checkout 中完成：两次 clean pack+normalize 的七包逐项一致。最终发布流程将把该 checkout 生成的 `SHA256SUMS.txt` 与 nupkg 一起作为 CI/release artifact 保存；不把 hash 表写回源码文档，避免 NuGet nuspec 的 repository commit 元数据造成自引用漂移。
+两次 clean pack+normalize 的七包逐项一致，相关结果作为本次迁移历史保留；不把自引用 hash 表继续写入源码文档。
 
 ## 独立构建验证快照（2026-08-06，历史基线）
 
@@ -136,28 +145,27 @@ BIN-SCHEMA-2 corpus 证据已补齐：消费者侧 schema 选择 canonical TCP `
 | `ChatAppTCP_Server` | PASS，0 warning / 0 error | 516 passed / 1 Redis integration skipped |
 | `ChatApp.RealtimeServices` | PASS，0 warning / 0 error | 285 passed；ACK timing focused 4 passed |
 
-跳过项必须在需要发布相应适配器时由带真实依赖的 CI/预发布环境补跑，不能把 skipped 当作已覆盖。
+跳过项在对应能力进入集成验证时由带真实依赖的环境补跑，不能把 skipped 当作已覆盖。
 
-## 发布与部署顺序
+## 下一阶段开发衔接
 
-1. Shared CI 对当前版本的预期包集合执行 locked restore、一次 Release build/test、两次独立 pack+normalize 和逐包 SHA-256 比较；当前 `0.5.0` 集合为六个 runtime 包加一个 analyzer 包。Realtime 发布流水线独立产出自身版本谱系。审核后只把绑定不可变 commit 的候选发布到内部 NuGet feed；仓库内 `packages/` 只作为离线、CI 和迁移期来源。
-2. 在发布流水线中验证包 hash 后，再部署 Server、Gateway 与 Client；禁止恢复 sibling `ProjectReference` 或源码路径 fallback。
-3. Client 升级时同时应用 SQLite `deviceCredential` 迁移；Server 与 Gateway 应作为同一认证缓存契约批次部署。
-4. Gateway watcher 在过渡期同时读取 canonical `watchers:*` 与旧 `pw:*`，并双写两套结构。全部旧实例下线后至少等待旧 key 最大 TTL（当前 30 分钟）及观测缓冲，再删除 `pw:*` 兼容路径。
+1. Client 执行 `REL-READ-3`：建立关系 SQLite 投影与每 list 水位，完成 list/catch-up/reset 的事务应用、故障恢复和 HTTP 权威对照；Shared 只修复能够复现的契约缺口。
+2. Shared Binary nested/list 已完成首批：`MessageHistoryItem` 与 `SyncBootstrapRequest` 已冻结字段号、unpacked repeated/nested 语义、depth/element/materialized-byte limits，并有 Core/Generator 与真实 corpus；随后已补控制帧、会话列表 flat DTO、cursor reset、`MessageHistoryResponse` 与 `SyncBootstrapResponse`（含单个 nested cursor 和 repeated nested catch-up/items）的消费者侧 schema/golden/limits。关系 list/sync 与其余握手后 payload 仍留待后续批次，packed collection 也暂不启用。
+3. Client/Gateway 执行 `BIN-INTEGRATION-3`：保持 JSON 握手和 Resume，连接级固定 exact format，按格式分组 fanout；用 5–20 分钟短测验证 fallback、重连、畸形/超限输入和 80/320/640 msg/s 下的 CPU、分配与 p95/p99。
+4. 独立补 endpoint scheme/SNI/TLS policy 契约；媒体方向先完成语音附件元数据，再评估 WebRTC 信令，二者均不与关系或 binary 同批开发。
 
 ## 后续演进规则
 
 1. 任何 TCP 命令先修改共享 `PacketCommand` 与 golden contract，再更新 Client/Gateway；消费者不得重新声明本地 wire enum。
-2. HTTP、Auth 缓存或 Realtime wire 变更必须先在唯一契约包中完成，并以兼容性测试和版本升级表达；业务项目只保留领域模型与显式 adapter。
+2. HTTP、Auth 缓存或 Realtime wire 变更必须先在唯一契约源中完成，并用兼容性测试表达；业务项目只保留领域模型与显式 adapter。
 3. Realtime 契约只在既有 2.x PackageId 上演进，不创建同名 0.x 包。
 4. 只有出现两个以上真实消费者、语义稳定且版本节奏一致的值对象时，才评审新增 primitives 包。
-5. 每次升级必须通过独立 locked restore、Release build、契约/golden 测试与容器构建，并记录 PackageId、版本和 hash，确保可回滚。
+5. 每次跨仓变更必须通过独立 Release build、契约/golden 测试与受影响消费者短时联调；失败时不得推进能力位或本地水位。
 
 ## 后续改动的标准路径
 
 1. **先确定所有权。** TCP wire、HTTP wire、Auth 缓存 schema 和 Realtime/NATS wire 分别只改其唯一契约包；只被一个服务使用的领域 DTO、数据库实体和业务策略留在该服务内。
-2. **先提交契约，再提交消费者。** 契约 PR 必须包含 golden bytes/JSON、枚举数值或缓存 schema 兼容测试，并产出不可变 `.nupkg` 与 SHA-256；禁止由消费者复制源码、链接文件或增加 sibling `ProjectReference`。
-3. **按兼容性升版本。** 无 wire/API 变化的修复升 patch；可向后兼容的可选字段或新能力升 minor；删除/改名、字段类型或语义变化、枚举数值变化和帧布局变化升 major。0.x 包发生 breaking change 时至少升 minor，并按 breaking migration 管理；稳定后应进入 1.x。
-4. **消费者按需升级。** 只在实际需要新能力的 Client、Server、Gateway 或 Realtime 仓库中更新 `Directory.Packages.props`，随后重新生成锁文件并核对 content hash；没有需求的消费者继续锁定旧版本。
-5. **兼容窗口内分阶段部署。** 生产者先做到旧/新消费者都可读，消费者再逐个升级；认证缓存、命令能力或事件 schema 的旧路径必须等所有实例升级并超过最大 TTL/保留窗口后才能删除。
-6. **合并门禁。** 每个受影响仓库必须独立执行 locked restore、Release build、契约测试和自身行为测试；跨进程变更再补一条真实 Redis/NATS/HTTP/TCP 联调。发布记录保留包版本、hash、消费者版本和回滚顺序。
+2. **先改契约，再改消费者。** 契约变更必须包含 golden bytes/JSON、枚举数值或缓存 schema 兼容测试；禁止消费者复制源码、链接文件或增加 sibling `ProjectReference`。
+3. **显式处理兼容性。** 新字段必须有默认/null/未知行为；删除或改义必须保留 reserved 标识并采用新的 exact format/capability，不能靠 namespace 或反序列化猜测。
+4. **消费者按需接入。** 只改实际需要新能力的 Client、Server、Gateway 或 Realtime；未接入者保持现有稳定路径，不提前复制 schema 或开启 capability。
+5. **短反馈验证。** 每个受影响仓库独立执行 Release build、契约测试和自身行为测试；跨进程变更补真实 Redis/NATS/HTTP/TCP 联调，长时测试留到功能冻结后。
