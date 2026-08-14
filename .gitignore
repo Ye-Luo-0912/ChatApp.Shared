@@ -5,6 +5,7 @@
 .vscode/
 TestResults/
 artifacts/
+.artifacts/
 packages/
 *.DotSettings.user
 *.suo
