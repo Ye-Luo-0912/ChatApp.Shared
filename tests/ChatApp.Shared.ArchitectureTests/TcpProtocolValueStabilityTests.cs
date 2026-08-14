@@ -149,6 +149,7 @@ public sealed class TcpProtocolValueStabilityTests
         Assert.Equal(1u << 10, (uint)GatewayFeature.GroupManagement);
         Assert.Equal(1u << 11, (uint)GatewayFeature.PushTokenManagement);
         Assert.Equal(1u << 12, (uint)GatewayFeature.CallSignaling);
+        Assert.Equal(1u << 13, (uint)GatewayFeature.RelationshipRead);
 
         Assert.Equal((ushort)0, (ushort)ProtocolErrorCode.None);
         Assert.Equal((ushort)1, (ushort)ProtocolErrorCode.ProtocolViolation);
