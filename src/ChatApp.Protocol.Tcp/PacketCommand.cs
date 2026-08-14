@@ -85,6 +85,9 @@ public enum PacketCommand : ushort
     MessageReadReceiptQueryResponse = 170,
     DissolveGroupRequest = 171,
     DissolveGroupResponse = 172,
+    CallCommandRequest = 173,
+    CallCommandResponse = 174,
+    CallSignal = 175,
     Error = 500,
     HeartbeatAcknowledgement = 1000
 }

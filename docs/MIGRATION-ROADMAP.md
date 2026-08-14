@@ -147,25 +147,6 @@ BIN-SCHEMA-2 corpus 证据已补齐：消费者侧 schema 选择 canonical TCP `
 
 跳过项在对应能力进入集成验证时由带真实依赖的环境补跑，不能把 skipped 当作已覆盖。
 
-## 下一阶段开发衔接
+## 文档边界
 
-1. Client 执行 `REL-READ-3`：建立关系 SQLite 投影与每 list 水位，完成 list/catch-up/reset 的事务应用、故障恢复和 HTTP 权威对照；Shared 只修复能够复现的契约缺口。
-2. Shared Binary nested/list 已完成首批：`MessageHistoryItem` 与 `SyncBootstrapRequest` 已冻结字段号、unpacked repeated/nested 语义、depth/element/materialized-byte limits，并有 Core/Generator 与真实 corpus；随后已补控制帧、会话列表 flat DTO、cursor reset、`MessageHistoryResponse` 与 `SyncBootstrapResponse`（含单个 nested cursor 和 repeated nested catch-up/items）的消费者侧 schema/golden/limits。关系 list/sync 与其余握手后 payload 仍留待后续批次，packed collection 也暂不启用。
-3. Client/Gateway 执行 `BIN-INTEGRATION-3`：保持 JSON 握手和 Resume，连接级固定 exact format，按格式分组 fanout；用 5–20 分钟短测验证 fallback、重连、畸形/超限输入和 80/320/640 msg/s 下的 CPU、分配与 p95/p99。
-4. 独立补 endpoint scheme/SNI/TLS policy 契约；媒体方向先完成语音附件元数据，再评估 WebRTC 信令，二者均不与关系或 binary 同批开发。
-
-## 后续演进规则
-
-1. 任何 TCP 命令先修改共享 `PacketCommand` 与 golden contract，再更新 Client/Gateway；消费者不得重新声明本地 wire enum。
-2. HTTP、Auth 缓存或 Realtime wire 变更必须先在唯一契约源中完成，并用兼容性测试表达；业务项目只保留领域模型与显式 adapter。
-3. Realtime 契约只在既有 2.x PackageId 上演进，不创建同名 0.x 包。
-4. 只有出现两个以上真实消费者、语义稳定且版本节奏一致的值对象时，才评审新增 primitives 包。
-5. 每次跨仓变更必须通过独立 Release build、契约/golden 测试与受影响消费者短时联调；失败时不得推进能力位或本地水位。
-
-## 后续改动的标准路径
-
-1. **先确定所有权。** TCP wire、HTTP wire、Auth 缓存 schema 和 Realtime/NATS wire 分别只改其唯一契约包；只被一个服务使用的领域 DTO、数据库实体和业务策略留在该服务内。
-2. **先改契约，再改消费者。** 契约变更必须包含 golden bytes/JSON、枚举数值或缓存 schema 兼容测试；禁止消费者复制源码、链接文件或增加 sibling `ProjectReference`。
-3. **显式处理兼容性。** 新字段必须有默认/null/未知行为；删除或改义必须保留 reserved 标识并采用新的 exact format/capability，不能靠 namespace 或反序列化猜测。
-4. **消费者按需接入。** 只改实际需要新能力的 Client、Server、Gateway 或 Realtime；未接入者保持现有稳定路径，不提前复制 schema 或开启 capability。
-5. **短反馈验证。** 每个受影响仓库独立执行 Release build、契约测试和自身行为测试；跨进程变更补真实 Redis/NATS/HTTP/TCP 联调，长时测试留到功能冻结后。
+本文件只保留已经发生的迁移与验证记录，不再维护未来任务、开发顺序或运行门禁。当前路线见 [`NEXT-STAGE.md`](NEXT-STAGE.md)，契约所有权与演进规则见 [`BOUNDARIES.md`](BOUNDARIES.md)，二进制细节见 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)。

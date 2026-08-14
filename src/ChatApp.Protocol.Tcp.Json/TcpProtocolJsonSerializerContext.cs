@@ -46,4 +46,8 @@ namespace ChatApp.Shared.Protocol.Tcp.Json;
 [JsonSerializable(typeof(TcpRelationshipListResponse))]
 [JsonSerializable(typeof(TcpRelationshipListItem))]
 [JsonSerializable(typeof(TcpRelationshipListItem[]))]
+[JsonSerializable(typeof(TcpCallCommandRequest))]
+[JsonSerializable(typeof(TcpCallCommandResponse))]
+[JsonSerializable(typeof(TcpCallGrant))]
+[JsonSerializable(typeof(TcpCallSignal))]
 public partial class TcpProtocolJsonSerializerContext : JsonSerializerContext;

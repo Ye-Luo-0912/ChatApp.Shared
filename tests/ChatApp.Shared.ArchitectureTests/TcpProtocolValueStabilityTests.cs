@@ -122,6 +122,9 @@ public sealed class TcpProtocolValueStabilityTests
             MessageReadReceiptQueryResponse=170
             DissolveGroupRequest=171
             DissolveGroupResponse=172
+            CallCommandRequest=173
+            CallCommandResponse=174
+            CallSignal=175
             Error=500
             HeartbeatAcknowledgement=1000
             """.Split('\n').Select(line => line.TrimEnd('\r')));
@@ -145,6 +148,7 @@ public sealed class TcpProtocolValueStabilityTests
         Assert.Equal(1u << 9, (uint)GatewayFeature.MessageReactions);
         Assert.Equal(1u << 10, (uint)GatewayFeature.GroupManagement);
         Assert.Equal(1u << 11, (uint)GatewayFeature.PushTokenManagement);
+        Assert.Equal(1u << 12, (uint)GatewayFeature.CallSignaling);
 
         Assert.Equal((ushort)0, (ushort)ProtocolErrorCode.None);
         Assert.Equal((ushort)1, (ushort)ProtocolErrorCode.ProtocolViolation);

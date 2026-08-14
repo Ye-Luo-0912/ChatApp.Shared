@@ -19,7 +19,8 @@ public enum GatewayFeature : uint
     PresenceAndTyping = 1u << 8,
     MessageReactions = 1u << 9,
     GroupManagement = 1u << 10,
-    PushTokenManagement = 1u << 11
+    PushTokenManagement = 1u << 11,
+    CallSignaling = 1u << 12
 }
 
 /// <summary>

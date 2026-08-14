@@ -46,13 +46,13 @@ jobs:
         shell: pwsh
         run: |
           $expected = @(
-            'ChatApp.Auth.Contracts.0.5.0.nupkg',
-            'ChatApp.Binary.Core.0.5.0.nupkg',
-            'ChatApp.Contracts.Http.0.5.0.nupkg',
-            'ChatApp.Protocol.Tcp.0.5.0.nupkg',
-            'ChatApp.Protocol.Tcp.Binary.0.5.0.nupkg',
-            'ChatApp.Protocol.Tcp.Binary.Generator.0.5.0.nupkg',
-            'ChatApp.Protocol.Tcp.Json.0.5.0.nupkg'
+            'ChatApp.Auth.Contracts.0.5.1.nupkg',
+            'ChatApp.Binary.Core.0.5.1.nupkg',
+            'ChatApp.Contracts.Http.0.5.1.nupkg',
+            'ChatApp.Protocol.Tcp.0.5.1.nupkg',
+            'ChatApp.Protocol.Tcp.Binary.0.5.1.nupkg',
+            'ChatApp.Protocol.Tcp.Binary.Generator.0.5.1.nupkg',
+            'ChatApp.Protocol.Tcp.Json.0.5.1.nupkg'
           )
           foreach ($directory in @('artifacts/packages-a', 'artifacts/packages-b')) {
             $actual = @(Get-ChildItem $directory -Filter *.nupkg | Sort-Object Name | ForEach-Object Name)
