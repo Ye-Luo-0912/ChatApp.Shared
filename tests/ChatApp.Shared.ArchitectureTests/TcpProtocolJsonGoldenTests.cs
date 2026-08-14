@@ -180,7 +180,7 @@ public sealed class TcpProtocolJsonGoldenTests
         };
 
         const string expected = """
-            {"requestId":"request-01","conversationId":"conversation-01","succeeded":true,"items":[{"messageId":"message-10","clientMessageId":"client-message-10","senderUserId":7,"receiverUserId":8,"conversationId":"conversation-01","content":"hello","receivedAtMs":1735689600000,"editVersion":1,"changedAtMs":1735689600100,"attachments":[{"refVersion":1,"attachmentId":"attachment-01","fileName":"voice.opus","contentType":"audio/opus","sizeBytes":1234,"status":1}],"reactions":[{"emoji":"\uD83D\uDC4D","count":2,"reactedByMe":true}],"mentionedUserIds":[8],"mentionedRoles":["admin"]}],"nextCursor":{"receivedAtMs":1735689600000,"changedAtMs":1735689600100,"messageId":"message-10"},"hasMore":true}
+            {"requestId":"request-01","conversationId":"conversation-01","succeeded":true,"items":[{"messageId":"message-10","clientMessageId":"client-message-10","senderUserId":7,"receiverUserId":8,"conversationId":"conversation-01","content":"hello","receivedAtMs":1735689600000,"editVersion":1,"changedAtMs":1735689600100,"attachments":[{"refVersion":1,"attachmentId":"attachment-01","fileName":"voice.opus","contentType":"audio/opus","sizeBytes":1234,"status":1,"isVoice":false}],"reactions":[{"emoji":"\uD83D\uDC4D","count":2,"reactedByMe":true}],"mentionedUserIds":[8],"mentionedRoles":["admin"]}],"nextCursor":{"receivedAtMs":1735689600000,"changedAtMs":1735689600100,"messageId":"message-10"},"hasMore":true}
             """;
 
         Assert.Equal(expected, JsonSerializer.Serialize(value, JsonContext.MessageHistoryResponse));
@@ -200,6 +200,78 @@ public sealed class TcpProtocolJsonGoldenTests
         Assert.NotNull(value);
         Assert.Null(value.ConversationId);
         Assert.Null(value.NextCursor?.ChangedAtMs);
+    }
+
+    [Fact]
+    public void TcpAttachmentRefVoiceMetadataMatchesGoldenJson()
+    {
+        var value = new TcpAttachmentRef
+        {
+            AttachmentId = "voice-01",
+            FileName = "voice.opus",
+            ContentType = "audio/opus",
+            SizeBytes = 1234,
+            Status = 1,
+            IsVoice = true,
+            VoiceCodec = "opus",
+            VoiceContainer = "ogg",
+            VoiceDurationMs = 4_500,
+            VoiceSampleRateHz = 48_000,
+            VoiceChannels = 1
+        };
+
+        const string expected = """
+            {"refVersion":1,"attachmentId":"voice-01","fileName":"voice.opus","contentType":"audio/opus","sizeBytes":1234,"status":1,"isVoice":true,"voiceCodec":"opus","voiceContainer":"ogg","voiceDurationMs":4500,"voiceSampleRateHz":48000,"voiceChannels":1}
+            """;
+
+        Assert.Equal(expected, JsonSerializer.Serialize(value, JsonContext.TcpAttachmentRef));
+    }
+
+    [Fact]
+    public void TcpAttachmentRefReadsLegacyPayloadWithoutVoiceFields()
+    {
+        // 旧客户端（或旧 Server）不写语音字段：非语音附件仍可正常反序列化，语音字段为 null/默认。
+        const string json = """
+            {"refVersion":1,"attachmentId":"plain-01","fileName":"doc.pdf","contentType":"application/pdf","sizeBytes":2048,"status":1}
+            """;
+
+        TcpAttachmentRef? value = JsonSerializer.Deserialize(json, JsonContext.TcpAttachmentRef);
+
+        Assert.NotNull(value);
+        Assert.Equal("plain-01", value.AttachmentId);
+        Assert.False(value.IsVoice);
+        Assert.Null(value.VoiceCodec);
+        Assert.Null(value.VoiceContainer);
+        Assert.Null(value.VoiceDurationMs);
+        Assert.Null(value.VoiceSampleRateHz);
+        Assert.Null(value.VoiceChannels);
+    }
+
+    [Fact]
+    public void TcpAttachmentRefIgnoresUnknownFieldsAndRoundTripsVoice()
+    {
+        // 新客户端发送的语音字段 + 未来未知字段：反序列化忽略未知字段并保留已知语音元数据往返。
+        const string json = """
+            {"refVersion":1,"attachmentId":"voice-02","fileName":"m.m4a","contentType":"audio/mp4","sizeBytes":5678,"status":1,"isVoice":true,"voiceCodec":"aac","voiceContainer":"m4a","voiceDurationMs":9800,"voiceSampleRateHz":44100,"voiceChannels":2,"futureUnknown":123}
+            """;
+
+        TcpAttachmentRef? value = JsonSerializer.Deserialize(json, JsonContext.TcpAttachmentRef);
+
+        Assert.NotNull(value);
+        Assert.True(value.IsVoice);
+        Assert.Equal("aac", value.VoiceCodec);
+        Assert.Equal("m4a", value.VoiceContainer);
+        Assert.Equal(9_800, value.VoiceDurationMs);
+        Assert.Equal(44_100, value.VoiceSampleRateHz);
+        Assert.Equal((short)2, value.VoiceChannels);
+
+        // 往返序列化后语音字段保持不变。
+        var reencoded = JsonSerializer.Serialize(value, JsonContext.TcpAttachmentRef);
+        TcpAttachmentRef? roundTrip = JsonSerializer.Deserialize(reencoded, JsonContext.TcpAttachmentRef);
+        Assert.NotNull(roundTrip);
+        Assert.True(roundTrip.IsVoice);
+        Assert.Equal("aac", roundTrip.VoiceCodec);
+        Assert.Equal(9_800, roundTrip.VoiceDurationMs);
     }
 
     [Fact]

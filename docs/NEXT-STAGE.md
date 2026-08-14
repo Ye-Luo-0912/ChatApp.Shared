@@ -28,6 +28,12 @@ Shared 只拥有跨进程、可版本化且至少有两个真实消费者的契�
 3. 覆盖 JSON golden、old/new optional field、未知 enum、超限/畸形输入，以及 Gateway mapper 与 Client consumer fixture；不得为二进制另建第二套语音 DTO。
 4. 附件状态继续使用现有 Available/Scanning/Rejected/Expired 等语义；若业务需要新错误，先由 Server/Realtime 固定再进入 Shared。
 
+**Shared 契约部分已完成（0.5.3）**：`TcpAttachmentRef` 增加 6 个有界语音字段
+（`IsVoice`/`VoiceCodec`/`VoiceContainer`/`VoiceDurationMs`/`VoiceSampleRateHz`/`VoiceChannels`），
+JSON golden/兼容/往返/畸形测试与二进制 fixture 已同步并全绿；二进制 field 10–15 已预留。
+Gateway 侧 `HistoryWireMapper.MapAttachments` 已完成语音字段映射并新增映射测试。
+剩余跨仓库工作：Client consumer fixture 与 Server/Client 端到端联调。
+
 完成标准：Server/Realtime/Gateway/Client 使用同一语音元数据含义，文本和普通附件兼容不变，语音正文不进入 Shared payload。
 
 ### P1：`CALL-E2E-2` 通话控制面

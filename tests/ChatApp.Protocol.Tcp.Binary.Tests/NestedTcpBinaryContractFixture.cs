@@ -15,6 +15,12 @@ namespace ChatApp.Protocol.Tcp.Binary.Tests;
 [TcpBinaryField(7, nameof(TcpAttachmentRef.DownloadApiHint))]
 [TcpBinaryField(8, nameof(TcpAttachmentRef.DownloadToken))]
 [TcpBinaryField(9, nameof(TcpAttachmentRef.ThumbnailApiHint))]
+[TcpBinaryField(10, nameof(TcpAttachmentRef.IsVoice))]
+[TcpBinaryField(11, nameof(TcpAttachmentRef.VoiceCodec))]
+[TcpBinaryField(12, nameof(TcpAttachmentRef.VoiceContainer))]
+[TcpBinaryField(13, nameof(TcpAttachmentRef.VoiceDurationMs))]
+[TcpBinaryField(14, nameof(TcpAttachmentRef.VoiceSampleRateHz))]
+[TcpBinaryField(15, nameof(TcpAttachmentRef.VoiceChannels))]
 internal static partial class TcpAttachmentRefBinaryDescriptor
 {
     public static BinaryStatus TryEncode(
@@ -42,6 +48,12 @@ internal readonly struct TcpAttachmentRefBinaryEncoder : IBinaryEncoder<TcpAttac
         if (value.DownloadApiHint is { } downloadApiHint) writer.WriteString(7, downloadApiHint);
         if (value.DownloadToken is { } downloadToken) writer.WriteString(8, downloadToken);
         if (value.ThumbnailApiHint is { } thumbnailApiHint) writer.WriteString(9, thumbnailApiHint);
+        writer.WriteBool(10, value.IsVoice);
+        if (value.VoiceCodec is { } voiceCodec) writer.WriteString(11, voiceCodec);
+        if (value.VoiceContainer is { } voiceContainer) writer.WriteString(12, voiceContainer);
+        if (value.VoiceDurationMs is { } voiceDurationMs) writer.WriteInt64(13, voiceDurationMs);
+        if (value.VoiceSampleRateHz is { } voiceSampleRateHz) writer.WriteInt32(14, voiceSampleRateHz);
+        if (value.VoiceChannels is { } voiceChannels) writer.WriteInt32(15, voiceChannels);
         return writer.Status;
     }
 }
