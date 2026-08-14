@@ -20,6 +20,10 @@ public static class BinaryCodec
     {
         limits.Validate(nameof(limits));
         written = 0;
+        if (limits.CurrentNestingDepth >= limits.MaxNestingDepth)
+        {
+            return BinaryStatus.NestingTooDeep;
+        }
         BinaryStatus status = EncodeNative<TEncoder, T>(
             in value,
             destination,
@@ -43,6 +47,10 @@ public static class BinaryCodec
     {
         limits.Validate(nameof(limits));
         value = default;
+        if (limits.CurrentNestingDepth >= limits.MaxNestingDepth)
+        {
+            return BinaryStatus.NestingTooDeep;
+        }
         if (source.Length > limits.MaxMessageBytes)
         {
             return BinaryStatus.MessageTooLarge;
@@ -60,6 +68,10 @@ public static class BinaryCodec
     {
         limits.Validate(nameof(limits));
         value = default;
+        if (limits.CurrentNestingDepth >= limits.MaxNestingDepth)
+        {
+            return BinaryStatus.NestingTooDeep;
+        }
         if (source.Length > limits.MaxMessageBytes)
         {
             return BinaryStatus.MessageTooLarge;

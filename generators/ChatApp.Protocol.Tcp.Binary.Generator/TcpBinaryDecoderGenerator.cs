@@ -19,6 +19,10 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
         "ChatApp.Shared.Protocol.Tcp.Binary.Generation.TcpBinaryContractAttribute";
     private const string FieldAttributeName =
         "ChatApp.Shared.Protocol.Tcp.Binary.Generation.TcpBinaryFieldAttribute";
+    private const string RepeatedFieldAttributeName =
+        "ChatApp.Shared.Protocol.Tcp.Binary.Generation.TcpBinaryRepeatedFieldAttribute";
+    private const string NestedFieldAttributeName =
+        "ChatApp.Shared.Protocol.Tcp.Binary.Generation.TcpBinaryNestedFieldAttribute";
 
     private static readonly DiagnosticDescriptor InvalidDescriptor = new(
         "CTB001",
@@ -129,7 +133,8 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
         }
 
         ImmutableArray<AttributeData> fieldAttributes = descriptor.GetAttributes()
-            .Where(static attribute => attribute.AttributeClass?.ToDisplayString() == FieldAttributeName)
+            .Where(static attribute => attribute.AttributeClass?.ToDisplayString() is
+                FieldAttributeName or RepeatedFieldAttributeName or NestedFieldAttributeName)
             .ToImmutableArray();
         if (fieldAttributes.IsDefaultOrEmpty)
         {
@@ -187,7 +192,78 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (!TryClassify(property.Type, out TypeModel type))
+            string attributeName = attribute.AttributeClass?.ToDisplayString() ?? string.Empty;
+            FieldShape shape = FieldShape.Scalar;
+            ITypeSymbol? elementType = null;
+            string? nestedDescriptorType = null;
+            TypeModel type;
+
+            if (attributeName == RepeatedFieldAttributeName)
+            {
+                if (!TryGetRepeatedElementType(property.Type, out elementType))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        UnsupportedPropertyType,
+                        attributeLocation,
+                        propertyName,
+                        property.Type.ToDisplayString()));
+                    hasError = true;
+                    continue;
+                }
+
+                shape = FieldShape.RepeatedScalar;
+                if (elementType is not null && TryClassify(elementType, out type))
+                {
+                    // scalar repeated field
+                }
+                else
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        UnsupportedPropertyType,
+                        attributeLocation,
+                        propertyName,
+                        property.Type.ToDisplayString()));
+                    hasError = true;
+                    continue;
+                }
+            }
+            else if (attributeName == NestedFieldAttributeName)
+            {
+                if (attribute.ConstructorArguments.Length < 3
+                    || attribute.ConstructorArguments[2].Value is not INamedTypeSymbol nestedDescriptor)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        UnsupportedPropertyType,
+                        attributeLocation,
+                        propertyName,
+                        property.Type.ToDisplayString()));
+                    hasError = true;
+                    continue;
+                }
+
+                nestedDescriptorType = nestedDescriptor.ToDisplayString(FullyQualifiedNullableFormat);
+                if (TryGetRepeatedElementType(property.Type, out elementType))
+                {
+                    shape = FieldShape.RepeatedNested;
+                    type = default;
+                }
+                else if (property.Type is INamedTypeSymbol)
+                {
+                    shape = FieldShape.NestedScalar;
+                    type = default;
+                }
+                else
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        UnsupportedPropertyType,
+                        attributeLocation,
+                        propertyName,
+                        property.Type.ToDisplayString()));
+                    hasError = true;
+                    continue;
+                }
+            }
+            else if (!TryClassify(property.Type, out type))
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     UnsupportedPropertyType,
@@ -198,7 +274,7 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (property.IsRequired && type.IsNullable)
+            if (shape == FieldShape.Scalar && property.IsRequired && type.IsNullable)
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     RequiredNullableField,
@@ -209,7 +285,7 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
                 continue;
             }
 
-            fields.Add(new FieldModel(number, property, type));
+            fields.Add(new FieldModel(number, property, type, shape, elementType, nestedDescriptorType));
         }
 
         foreach (IPropertySymbol requiredProperty in contract.GetMembers()
@@ -346,6 +422,19 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
         return kind != TypeKindModel.Unsupported;
     }
 
+    private static bool TryGetRepeatedElementType(ITypeSymbol sourceType, out ITypeSymbol? elementType)
+    {
+        if (sourceType is INamedTypeSymbol named
+            && named.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IReadOnlyList<T>")
+        {
+            elementType = named.TypeArguments[0];
+            return true;
+        }
+
+        elementType = null;
+        return false;
+    }
+
     private static string Render(
         INamedTypeSymbol descriptor,
         INamedTypeSymbol contract,
@@ -451,13 +540,28 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
             FieldModel field = fields[index];
             builder.Append("            ")
                 .Append(GetTemporaryType(field, flavor));
-            builder.Append(" field").Append(index).Append(" = default;")
-                .AppendLine()
-                .Append("            bool seen").Append(index).AppendLine(" = false;");
+            builder.Append(" field").Append(index).AppendLine(" = default;");
+            if (field.Shape is FieldShape.Scalar or FieldShape.NestedScalar || field.Property.IsRequired)
+            {
+                builder.Append("            bool seen").Append(index).AppendLine(" = false;");
+            }
+        }
+
+        if (fields.Any(static field => field.IsRepeated))
+        {
+            builder.Append("            global::System.ReadOnlySpan<int> repeatedFieldNumbers = [")
+                .Append(string.Join(", ", fields
+                    .Where(static field => field.IsRepeated)
+                    .Select(static field => field.Number.ToString(CultureInfo.InvariantCulture))))
+                .AppendLine("]; ");
         }
 
         builder
-            .AppendLine("            while (reader.TryReadFieldHeader(out var fieldNumber, out var wireType))")
+            .Append("            while (reader.TryReadFieldHeader(out var fieldNumber, out var wireType, ")
+            .Append(fields.Any(static field => field.IsRepeated)
+                ? "repeatedFieldNumbers))"
+                : "allowRepeatedFieldNumber: false))")
+            .AppendLine()
             .AppendLine("            {")
             .AppendLine("                switch (fieldNumber)")
             .AppendLine("                {");
@@ -525,12 +629,72 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
     {
         builder.Append("                    case ")
             .Append(field.Number.ToString(CultureInfo.InvariantCulture)).AppendLine(":")
-            .AppendLine("                    {")
-            .Append("                        if (seen").Append(index).AppendLine(")")
-            .AppendLine("                        {")
-            .AppendLine("                            return global::ChatApp.Binary.Core.BinaryStatus.DuplicateField;")
-            .AppendLine("                        }")
-            .Append("                        seen").Append(index).AppendLine(" = true;");
+            .AppendLine("                    {");
+
+        if (field.Shape is FieldShape.Scalar or FieldShape.NestedScalar)
+        {
+            builder.Append("                        if (seen").Append(index).AppendLine(")")
+                .AppendLine("                        {")
+                .AppendLine("                            return global::ChatApp.Binary.Core.BinaryStatus.DuplicateField;")
+                .AppendLine("                        }");
+        }
+
+        if (field.Shape is FieldShape.Scalar or FieldShape.NestedScalar || field.Property.IsRequired)
+        {
+            builder.Append("                        seen").Append(index).AppendLine(" = true;");
+        }
+
+        if (field.IsRepeated)
+        {
+            builder.Append("                        if (!reader.TryAddCollectionElement(")
+                .Append(field.Number.ToString(CultureInfo.InvariantCulture)).AppendLine("))")
+                .AppendLine("                        {")
+                .AppendLine("                            return reader.Status;")
+                .AppendLine("                        }");
+        }
+
+        if (field.Shape is FieldShape.NestedScalar or FieldShape.RepeatedNested)
+        {
+            string elementType = field.Shape == FieldShape.NestedScalar
+                ? field.Property.Type.ToDisplayString(FullyQualifiedNullableFormat).TrimEnd('?')
+                : field.ElementType!.ToDisplayString(FullyQualifiedNullableFormat);
+            string payloadName = "nestedPayload" + index;
+            string statusName = "nestedStatus" + index;
+            string descriptor = field.NestedDescriptorType!;
+            string decode = flavor == DecoderFlavor.Contiguous
+                ? descriptor + ".TryDecode(" + payloadName + ", reader.NestedMessageLimits, out " + elementType + "? decoded" + index + ")"
+                : descriptor + ".TryDecode(in " + payloadName + ", reader.NestedMessageLimits, out " + elementType + "? decoded" + index + ")";
+
+            builder.Append("                        if (!reader.TryReadNestedMessage(wireType, out var ")
+                .Append(payloadName).AppendLine("))")
+                .AppendLine("                        {")
+                .AppendLine("                            return reader.Status;")
+                .AppendLine("                        }")
+                .Append("                        var ").Append(statusName).Append(" = ").Append(decode).AppendLine(";")
+                .Append("                        if (").Append(statusName).AppendLine(" != global::ChatApp.Binary.Core.BinaryStatus.Done)")
+                .AppendLine("                        {")
+                .Append("                            return ").Append(statusName).AppendLine(";")
+                .AppendLine("                        }")
+                .Append("                        if (decoded").Append(index).AppendLine(" is null)")
+                .AppendLine("                        {")
+                .AppendLine("                            return global::ChatApp.Binary.Core.BinaryStatus.ValueOutOfRange;")
+                .AppendLine("                        }")
+                .Append("                        ");
+            if (field.Shape == FieldShape.NestedScalar)
+            {
+                builder.Append("field").Append(index).Append(" = decoded").Append(index).AppendLine(";");
+            }
+            else
+            {
+                builder.Append("field").Append(index).Append(" ??= new global::System.Collections.Generic.List<")
+                    .Append(elementType).AppendLine(">();")
+                    .Append("                        field").Append(index).Append(".Add(decoded").Append(index).AppendLine(");");
+            }
+
+            builder.AppendLine("                        break;")
+                .AppendLine("                    }");
+            return;
+        }
 
         TypeKindModel kind = field.Type.Kind == TypeKindModel.Enum
             ? field.Type.EnumUnderlyingKind
@@ -552,9 +716,29 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
                 .AppendLine("                        }");
         }
 
-        builder.Append("                        field").Append(index).Append(" = ")
-            .Append(GetReadValueExpression(field, decodedName)).AppendLine(";")
-            .AppendLine("                        break;")
+        if (kind is TypeKindModel.String or TypeKindModel.Bytes)
+        {
+            builder.Append("                        if (!reader.TryAccountMaterializedBytes(")
+                .Append(decodedName).AppendLine(".Length))")
+                .AppendLine("                        {")
+                .AppendLine("                            return reader.Status;")
+                .AppendLine("                        }");
+        }
+
+        if (field.Shape == FieldShape.RepeatedScalar)
+        {
+            builder.Append("                        field").Append(index).Append(" ??= new global::System.Collections.Generic.List<")
+                .Append(field.ElementType!.ToDisplayString(FullyQualifiedNullableFormat)).AppendLine(">();")
+                .Append("                        field").Append(index).Append(".Add(")
+                .Append(GetReadValueExpression(field, decodedName, flavor)).AppendLine(");");
+        }
+        else
+        {
+            builder.Append("                        field").Append(index).Append(" = ")
+            .Append(GetReadValueExpression(field, decodedName, flavor)).AppendLine(";");
+        }
+
+        builder.AppendLine("                        break;")
             .AppendLine("                    }");
     }
 
@@ -572,27 +756,51 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
         _ => throw new InvalidOperationException("Unsupported generated read kind.")
     };
 
-    private static string GetTemporaryType(FieldModel field, DecoderFlavor flavor) => field.Type.Kind switch
+    private static string GetTemporaryType(FieldModel field, DecoderFlavor flavor)
     {
-        TypeKindModel.String when flavor == DecoderFlavor.Contiguous =>
-            "global::System.ReadOnlySpan<byte>",
-        TypeKindModel.String => "global::System.Buffers.ReadOnlySequence<byte>",
-        TypeKindModel.Bytes when flavor == DecoderFlavor.Contiguous =>
-            "global::System.ReadOnlySpan<byte>",
-        TypeKindModel.Bytes => "global::System.Buffers.ReadOnlySequence<byte>",
-        _ => field.Property.Type.ToDisplayString(FullyQualifiedNullableFormat)
-    };
+        if (field.IsRepeated)
+        {
+            return "global::System.Collections.Generic.List<"
+                + field.ElementType!.ToDisplayString(FullyQualifiedNullableFormat) + ">?";
+        }
 
-    private static string GetReadValueExpression(FieldModel field, string decodedName)
+        return field.Type.Kind switch
+        {
+            TypeKindModel.String when flavor == DecoderFlavor.Contiguous =>
+                "global::System.ReadOnlySpan<byte>",
+            TypeKindModel.String => "global::System.Buffers.ReadOnlySequence<byte>",
+            TypeKindModel.Bytes when flavor == DecoderFlavor.Contiguous =>
+                "global::System.ReadOnlySpan<byte>",
+            TypeKindModel.Bytes => "global::System.Buffers.ReadOnlySequence<byte>",
+            _ => field.Property.Type.ToDisplayString(FullyQualifiedNullableFormat)
+        };
+    }
+
+    private static string GetReadValueExpression(
+        FieldModel field,
+        string decodedName,
+        DecoderFlavor flavor)
     {
+        string targetType = field.Shape == FieldShape.Scalar
+            ? field.Property.Type.ToDisplayString(FullyQualifiedNullableFormat)
+            : field.ElementType!.ToDisplayString(FullyQualifiedNullableFormat);
         string value = field.Type.Kind switch
         {
-            TypeKindModel.Enum => "(" + field.Property.Type.ToDisplayString(FullyQualifiedNullableFormat)
+            TypeKindModel.Enum => "(" + targetType
                                   .TrimEnd('?') + ")" + decodedName,
             TypeKindModel.SByte => "(sbyte)" + decodedName,
             TypeKindModel.Byte => "(byte)" + decodedName,
             TypeKindModel.Int16 => "(short)" + decodedName,
             TypeKindModel.UInt16 => "(ushort)" + decodedName,
+            TypeKindModel.String when field.Shape != FieldShape.Scalar =>
+                flavor == DecoderFlavor.Contiguous
+                    ? "global::System.Text.Encoding.UTF8.GetString(" + decodedName + ")"
+                    : "global::System.Text.EncodingExtensions.GetString(global::System.Text.Encoding.UTF8, in "
+                      + decodedName + ")",
+            TypeKindModel.Bytes when field.Shape != FieldShape.Scalar =>
+                flavor == DecoderFlavor.Contiguous
+                    ? decodedName + ".ToArray()"
+                    : "global::System.Buffers.BuffersExtensions.ToArray(in " + decodedName + ")",
             TypeKindModel.String when !field.Type.IsNullable => decodedName + "!",
             _ => decodedName
         };
@@ -606,6 +814,20 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
     {
         string fieldName = "field" + index.ToString(CultureInfo.InvariantCulture);
         string seenName = "seen" + index.ToString(CultureInfo.InvariantCulture);
+        if (field.IsRepeated)
+        {
+            string elementType = field.ElementType!.ToDisplayString(FullyQualifiedNullableFormat);
+            string emptyValue = field.Property.NullableAnnotation == NullableAnnotation.Annotated
+                ? "null"
+                : "new global::System.Collections.Generic.List<" + elementType + ">()";
+            return fieldName + " ?? " + emptyValue;
+        }
+
+        if (field.Shape == FieldShape.NestedScalar)
+        {
+            return seenName + " ? " + fieldName + " : null";
+        }
+
         return field.Type.Kind switch
         {
             TypeKindModel.String when field.Type.IsNullable =>
@@ -651,16 +873,38 @@ public sealed class TcpBinaryDecoderGenerator : IIncrementalGenerator
 
     private sealed class FieldModel
     {
-        public FieldModel(int number, IPropertySymbol property, TypeModel type)
+        public FieldModel(
+            int number,
+            IPropertySymbol property,
+            TypeModel type,
+            FieldShape shape,
+            ITypeSymbol? elementType,
+            string? nestedDescriptorType)
         {
             Number = number;
             Property = property;
             Type = type;
+            Shape = shape;
+            ElementType = elementType;
+            NestedDescriptorType = nestedDescriptorType;
         }
 
         public int Number { get; }
         public IPropertySymbol Property { get; }
         public TypeModel Type { get; }
+        public FieldShape Shape { get; }
+        public ITypeSymbol? ElementType { get; }
+        public string? NestedDescriptorType { get; }
+
+        public bool IsRepeated => Shape is FieldShape.RepeatedScalar or FieldShape.RepeatedNested;
+    }
+
+    private enum FieldShape : byte
+    {
+        Scalar,
+        NestedScalar,
+        RepeatedScalar,
+        RepeatedNested
     }
 
     private readonly struct TypeModel

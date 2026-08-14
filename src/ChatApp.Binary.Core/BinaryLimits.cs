@@ -13,20 +13,31 @@ public readonly record struct BinaryLimits
         maxFieldBytes: 64 * 1024,
         maxStringBytes: 64 * 1024,
         maxByteArrayBytes: 64 * 1024,
-        maxFields: 256);
+        maxFields: 256,
+        maxCollectionElements: 256,
+        maxNestingDepth: 8,
+        maxMaterializedBytes: 512 * 1024);
 
     public BinaryLimits(
         int maxMessageBytes,
         int maxFieldBytes,
         int maxStringBytes,
         int maxByteArrayBytes,
-        int maxFields)
+        int maxFields,
+        int maxCollectionElements = 256,
+        int maxNestingDepth = 8,
+        int maxMaterializedBytes = 512 * 1024,
+        int currentNestingDepth = 0)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxMessageBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxFieldBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxStringBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxByteArrayBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxFields);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxCollectionElements);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxNestingDepth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxMaterializedBytes);
+        ArgumentOutOfRangeException.ThrowIfNegative(currentNestingDepth);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(maxFieldBytes, maxMessageBytes);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(maxStringBytes, maxFieldBytes);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(maxByteArrayBytes, maxFieldBytes);
@@ -36,6 +47,10 @@ public readonly record struct BinaryLimits
         MaxStringBytes = maxStringBytes;
         MaxByteArrayBytes = maxByteArrayBytes;
         MaxFields = maxFields;
+        MaxCollectionElements = maxCollectionElements;
+        MaxNestingDepth = maxNestingDepth;
+        MaxMaterializedBytes = maxMaterializedBytes;
+        CurrentNestingDepth = currentNestingDepth;
     }
 
     public int MaxMessageBytes { get; }
@@ -48,6 +63,26 @@ public readonly record struct BinaryLimits
 
     public int MaxFields { get; }
 
+    public int MaxCollectionElements { get; }
+
+    public int MaxNestingDepth { get; }
+
+    public int MaxMaterializedBytes { get; }
+
+    internal int CurrentNestingDepth { get; }
+
+    /// <summary>Returns the child-message view of these limits without changing any configured budget.</summary>
+    public BinaryLimits ForNestedMessage() => new(
+        maxMessageBytes: MaxFieldBytes,
+        maxFieldBytes: MaxFieldBytes,
+        maxStringBytes: Math.Min(MaxStringBytes, MaxFieldBytes),
+        maxByteArrayBytes: Math.Min(MaxByteArrayBytes, MaxFieldBytes),
+        maxFields: MaxFields,
+        maxCollectionElements: MaxCollectionElements,
+        maxNestingDepth: MaxNestingDepth,
+        maxMaterializedBytes: MaxMaterializedBytes,
+        currentNestingDepth: checked(CurrentNestingDepth + 1));
+
     internal void Validate(string parameterName)
     {
         if (MaxMessageBytes <= 0
@@ -55,6 +90,10 @@ public readonly record struct BinaryLimits
             || MaxStringBytes <= 0
             || MaxByteArrayBytes <= 0
             || MaxFields <= 0
+            || MaxCollectionElements <= 0
+            || MaxNestingDepth <= 0
+            || MaxMaterializedBytes <= 0
+            || CurrentNestingDepth < 0
             || MaxFieldBytes > MaxMessageBytes
             || MaxStringBytes > MaxFieldBytes
             || MaxByteArrayBytes > MaxFieldBytes)

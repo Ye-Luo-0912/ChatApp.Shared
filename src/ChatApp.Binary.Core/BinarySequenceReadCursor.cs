@@ -13,6 +13,9 @@ public ref struct BinarySequenceReadCursor
     private readonly BinaryLimits _limits;
     private int _fieldCount;
     private int _lastFieldNumber;
+    private int _collectionFieldNumber;
+    private int _collectionElementCount;
+    private int _materializedBytes;
 
     public BinarySequenceReadCursor(
         in ReadOnlySequence<byte> source,
@@ -23,8 +26,13 @@ public ref struct BinarySequenceReadCursor
         _limits = limits;
         _fieldCount = 0;
         _lastFieldNumber = 0;
+        _collectionFieldNumber = 0;
+        _collectionElementCount = 0;
+        _materializedBytes = 0;
         Status = source.Length <= limits.MaxMessageBytes
-            ? BinaryStatus.Done
+            ? limits.CurrentNestingDepth < limits.MaxNestingDepth
+                ? BinaryStatus.Done
+                : BinaryStatus.NestingTooDeep
             : BinaryStatus.MessageTooLarge;
     }
 
@@ -36,7 +44,78 @@ public ref struct BinarySequenceReadCursor
 
     public BinaryStatus Status { get; private set; }
 
-    public bool TryReadFieldHeader(out int fieldNumber, out BinaryWireType wireType)
+    public readonly BinaryLimits NestedMessageLimits => _limits.ForNestedMessage();
+
+    public bool TryAddCollectionElement(int fieldNumber)
+    {
+        if (Status != BinaryStatus.Done)
+        {
+            return false;
+        }
+
+        if (_collectionFieldNumber != fieldNumber)
+        {
+            _collectionFieldNumber = fieldNumber;
+            _collectionElementCount = 0;
+        }
+
+        if (_collectionElementCount >= _limits.MaxCollectionElements)
+        {
+            return Fail(BinaryStatus.CollectionTooLarge);
+        }
+
+        _collectionElementCount++;
+        return true;
+    }
+
+    public bool TryAccountMaterializedBytes(long byteCount)
+    {
+        if (byteCount < 0 || byteCount > int.MaxValue)
+        {
+            return Fail(BinaryStatus.MaterializedBytesTooLarge);
+        }
+
+        try
+        {
+            _materializedBytes = checked(_materializedBytes + (int)byteCount);
+        }
+        catch (OverflowException)
+        {
+            return Fail(BinaryStatus.MaterializedBytesTooLarge);
+        }
+
+        return _materializedBytes <= _limits.MaxMaterializedBytes
+            || Fail(BinaryStatus.MaterializedBytesTooLarge);
+    }
+
+    public bool TryReadFieldHeader(out int fieldNumber, out BinaryWireType wireType) =>
+        TryReadFieldHeader(out fieldNumber, out wireType, allowRepeatedFieldNumber: false);
+
+    public bool TryReadFieldHeader(
+        out int fieldNumber,
+        out BinaryWireType wireType,
+        bool allowRepeatedFieldNumber) =>
+        TryReadFieldHeaderCore(
+            out fieldNumber,
+            out wireType,
+            allowRepeatedFieldNumber,
+            default);
+
+    public bool TryReadFieldHeader(
+        out int fieldNumber,
+        out BinaryWireType wireType,
+        ReadOnlySpan<int> repeatedFieldNumbers) =>
+        TryReadFieldHeaderCore(
+            out fieldNumber,
+            out wireType,
+            allowRepeatedFieldNumber: false,
+            repeatedFieldNumbers);
+
+    private bool TryReadFieldHeaderCore(
+        out int fieldNumber,
+        out BinaryWireType wireType,
+        bool allowRepeatedFieldNumber,
+        ReadOnlySpan<int> repeatedFieldNumbers)
     {
         fieldNumber = 0;
         wireType = default;
@@ -72,7 +151,9 @@ public ref struct BinarySequenceReadCursor
         }
 
         fieldNumber = (int)rawFieldNumber;
-        if (fieldNumber == _lastFieldNumber)
+        if (fieldNumber == _lastFieldNumber
+            && !allowRepeatedFieldNumber
+            && !ContainsFieldNumber(repeatedFieldNumbers, fieldNumber))
         {
             return Fail(BinaryStatus.DuplicateField);
         }
@@ -86,6 +167,19 @@ public ref struct BinarySequenceReadCursor
         _lastFieldNumber = fieldNumber;
         wireType = (BinaryWireType)rawWireType;
         return true;
+    }
+
+    private static bool ContainsFieldNumber(ReadOnlySpan<int> fieldNumbers, int fieldNumber)
+    {
+        foreach (int candidate in fieldNumbers)
+        {
+            if (candidate == fieldNumber)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public bool TryReadBool(BinaryWireType wireType, out bool value)
@@ -234,6 +328,15 @@ public ref struct BinarySequenceReadCursor
             wireType,
             _limits.MaxByteArrayBytes,
             BinaryStatus.ByteArrayTooLarge,
+            out value);
+
+    public bool TryReadNestedMessage(
+        BinaryWireType wireType,
+        out ReadOnlySequence<byte> value) =>
+        TryReadLengthDelimited(
+            wireType,
+            _limits.MaxFieldBytes,
+            BinaryStatus.FieldTooLarge,
             out value);
 
     public bool TrySkip(BinaryWireType wireType) => wireType switch

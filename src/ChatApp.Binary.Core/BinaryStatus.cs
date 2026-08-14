@@ -24,5 +24,8 @@ public enum BinaryStatus : byte
     InvalidUtf8,
     ValueOutOfRange,
     TrailingData,
-    MissingRequiredField
+    MissingRequiredField,
+    CollectionTooLarge,
+    NestingTooDeep,
+    MaterializedBytesTooLarge
 }
