@@ -122,7 +122,7 @@
       "chatapp.protocol.tcp.binary": {
         "type": "Project",
         "dependencies": {
-          "ChatApp.Binary.Core": "[0.5.0, )"
+          "ChatApp.Binary.Core": "[0.5.3, )"
         }
       },
       "chatapp.protocol.tcp.binary.generator": {

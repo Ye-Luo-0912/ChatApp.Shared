@@ -82,7 +82,13 @@ decoder 由 generator 生成静态代码：连续输入使用 native-pointer bou
 - [ ] 完成 malformed/oversize/fuzz、JSON fallback、GoAway/重连、混合格式 fanout 与 80/320/640 msg/s 的 5–20 分钟短测；比较 payload、Gateway CPU、allocation/msg、GC 与 p95/p99。
 - [ ] 本项在关系、语音消息和通话主链路之后执行。只有 payload 体积或 codec CPU/分配有稳定收益、零漏投/重复且 p99 无不可解释回退时，才改变 JSON 默认路径。
 
-完成标准：关闭开关可让新连接恢复 JSON，已协商连接可排空/重连；未达门槛时只保留底座和离线验证能力。
+`BIN-INTEGRATION-3` 的双端接入仍为支撑项，默认路径保持 JSON。本阶段已完成的是接入所需的共享契约层与寄存器（离线验证能力）：
+
+- [x] 新增生产 schema 消费程序集 `ChatApp.Protocol.Tcp.Binary.Schemas`（`src/` 内第 7 个契约包，net10.0，packable）：`ClientHello`/`ServerHello`/`GoAway`/`ResumeResponse`/`ProtocolErrorFrame`/`MessageHistoryRequest`/`MessageHistoryCursor` 的真实字段号、手写 encoder，decoder 由 generator 构建期生成；`ClientHello/ServerHello` 仍只在离线证据中验证，生产握手继续 JSON。
+- [x] 实现命令→schema 寄存器 `TcpBinaryWireCodec`：`TryDecode(PacketCommand, Span/ReadOnlySequence, BinaryLimits)` 按命令分发到对应 schema，未覆盖命令、畸形/超限覆盖命令一律 fail-closed（`SchemaNotCovered`/`DecodeFailure`）；`IsNegotiatedPayloadFormat` 仅识别精确 `chatapp-bin-v1`，用于协商识别。
+- [x] 新增 `TcpBinaryWireCodecTests`（7 项）：协商识别、控制/历史/错误帧往返、分段解码、未覆盖 fail-closed、畸形 fail-closed、超限 fail-closed。Shared 全量回归：Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 38 / Generator 15 / Architecture 110 全部通过，`dotnet build ChatApp.Shared.slnx -c Release` 0 警告 0 错误。架构边界补充：契约包允许 `OutputItemType="Analyzer"` 的 ProjectReference 指向 generator。
+
+完成标准（沿用）：关闭开关可让新连接恢复 JSON，已协商连接可排空/重连；未达门槛时只保留底座和离线验证能力。Client/Gateway 的实际双 codec 接入、混合格式 fanout 与 5–20 分钟短测仍待主链路推进。
 
 ## 格式演进规则
 

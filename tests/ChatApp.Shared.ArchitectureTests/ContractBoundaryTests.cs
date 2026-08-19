@@ -29,7 +29,7 @@ public sealed class ContractBoundaryTests
     {
         ProjectDescriptor[] projects = DiscoverContractProjects();
 
-        Assert.Equal(6, projects.Length);
+        Assert.Equal(7, projects.Length);
         Assert.All(projects, project => Assert.Equal("net10.0", project.TargetFramework));
         Assert.All(projects, project => Assert.False(string.IsNullOrWhiteSpace(project.PackageId)));
         Assert.All(projects, project => Assert.False(string.IsNullOrWhiteSpace(project.AssemblyName)));
@@ -47,7 +47,7 @@ public sealed class ContractBoundaryTests
         XDocument buildProps = XDocument.Load(buildPropsPath);
 
         ProjectDescriptor[] projects = DiscoverContractProjects();
-        Assert.Equal("0.5.1", GetRequiredProperty(buildProps, "VersionPrefix", buildPropsPath));
+        Assert.Equal("0.5.3", GetRequiredProperty(buildProps, "VersionPrefix", buildPropsPath));
         Assert.All(
             projects,
             project => Assert.True(
@@ -106,6 +106,10 @@ public sealed class ContractBoundaryTests
             IEnumerable<string> references = project.Document
                 .Descendants()
                 .Where(element => element.Name.LocalName == "ProjectReference")
+                .Where(element => !string.Equals(
+                    (string?)element.Attribute("OutputItemType"),
+                    "Analyzer",
+                    StringComparison.OrdinalIgnoreCase))
                 .Select(element => (string?)element.Attribute("Include"))
                 .Where(include => !string.IsNullOrWhiteSpace(include))
                 .Select(include => Path.GetFullPath(Path.Combine(projectDirectory, include!)));
