@@ -90,6 +90,8 @@ public static class TcpBinaryWireCodec
                 FromStatus(ProtocolErrorFrameSchema.TryDecode(payload, limits, out ProtocolErrorFrame? frame), frame),
             PacketCommand.MessageHistoryRequest =>
                 FromStatus(MessageHistoryRequestSchema.TryDecode(payload, limits, out MessageHistoryRequest? request), request),
+            PacketCommand.MessageHistoryPage =>
+                FromStatus(MessageHistoryResponseSchema.TryDecode(payload, limits, out MessageHistoryResponse? response), response),
             _ => TcpBinaryWireDecode.NotCovered
         };
     }
@@ -117,6 +119,8 @@ public static class TcpBinaryWireCodec
                 FromStatus(ProtocolErrorFrameSchema.TryDecode(in payload, limits, out ProtocolErrorFrame? frame), frame),
             PacketCommand.MessageHistoryRequest =>
                 FromStatus(MessageHistoryRequestSchema.TryDecode(in payload, limits, out MessageHistoryRequest? request), request),
+            PacketCommand.MessageHistoryPage =>
+                FromStatus(MessageHistoryResponseSchema.TryDecode(in payload, limits, out MessageHistoryResponse? response), response),
             _ => TcpBinaryWireDecode.NotCovered
         };
     }

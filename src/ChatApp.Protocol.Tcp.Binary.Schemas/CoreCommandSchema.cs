@@ -80,6 +80,71 @@ public static class CoreCommandFieldNumbers
         public const int ChangedAtMs = 2;
         public const int MessageId = 3;
     }
+
+    public static class TcpAttachmentRef
+    {
+        public const int RefVersion = 1;
+        public const int AttachmentId = 2;
+        public const int FileName = 3;
+        public const int ContentType = 4;
+        public const int SizeBytes = 5;
+        public const int Status = 6;
+        public const int DownloadApiHint = 7;
+        public const int DownloadToken = 8;
+        public const int ThumbnailApiHint = 9;
+        public const int IsVoice = 10;
+        public const int VoiceCodec = 11;
+        public const int VoiceContainer = 12;
+        public const int VoiceDurationMs = 13;
+        public const int VoiceSampleRateHz = 14;
+        public const int VoiceChannels = 15;
+    }
+
+    public static class MessageReactionSummary
+    {
+        public const int Emoji = 1;
+        public const int Count = 2;
+        public const int ReactedByMe = 3;
+    }
+
+    public static class MessageHistoryItem
+    {
+        public const int MessageId = 1;
+        public const int ClientMessageId = 2;
+        public const int SenderUserId = 3;
+        public const int ReceiverUserId = 4;
+        public const int ConversationId = 5;
+        public const int Content = 6;
+        public const int ReceivedAtMs = 7;
+        public const int DeliveredAtMs = 8;
+        public const int ReadAtMs = 9;
+        public const int RecalledAtMs = 10;
+        public const int EditVersion = 11;
+        public const int EditedAtMs = 12;
+        public const int ChangedAtMs = 13;
+        public const int Attachments = 14;
+        public const int Reactions = 15;
+        public const int ReplyToMessageId = 16;
+        public const int ReplyToSenderUserId = 17;
+        public const int ReplyToPreview = 18;
+        public const int ForwardedFromMessageId = 19;
+        public const int ForwardedFromSenderUserId = 20;
+        public const int ForwardedFromPreview = 21;
+        public const int MentionedUserIds = 22;
+        public const int MentionedRoles = 23;
+    }
+
+    public static class MessageHistoryResponse
+    {
+        public const int RequestId = 1;
+        public const int ConversationId = 2;
+        public const int Succeeded = 3;
+        public const int ErrorCode = 4;
+        public const int ErrorMessage = 5;
+        public const int Items = 6;
+        public const int NextCursor = 7;
+        public const int HasMore = 8;
+    }
 }
 
 [TcpBinaryContract(typeof(ClientHello))]
@@ -377,6 +442,321 @@ public readonly struct MessageHistoryCursorSchemaEncoder : IBinaryEncoder<Messag
         }
 
         writer.WriteString(CoreCommandFieldNumbers.MessageHistoryCursor.MessageId, value.MessageId);
+        return writer.Status;
+    }
+}
+
+[TcpBinaryContract(typeof(TcpAttachmentRef))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.RefVersion, nameof(TcpAttachmentRef.RefVersion))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.AttachmentId, nameof(TcpAttachmentRef.AttachmentId))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.FileName, nameof(TcpAttachmentRef.FileName))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.ContentType, nameof(TcpAttachmentRef.ContentType))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.SizeBytes, nameof(TcpAttachmentRef.SizeBytes))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.Status, nameof(TcpAttachmentRef.Status))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.DownloadApiHint, nameof(TcpAttachmentRef.DownloadApiHint))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.DownloadToken, nameof(TcpAttachmentRef.DownloadToken))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.ThumbnailApiHint, nameof(TcpAttachmentRef.ThumbnailApiHint))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.IsVoice, nameof(TcpAttachmentRef.IsVoice))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceCodec, nameof(TcpAttachmentRef.VoiceCodec))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceContainer, nameof(TcpAttachmentRef.VoiceContainer))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceDurationMs, nameof(TcpAttachmentRef.VoiceDurationMs))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceSampleRateHz, nameof(TcpAttachmentRef.VoiceSampleRateHz))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceChannels, nameof(TcpAttachmentRef.VoiceChannels))]
+public static partial class TcpAttachmentRefSchema
+{
+    public static BinaryStatus TryEncode(
+        in TcpAttachmentRef value,
+        Span<byte> destination,
+        BinaryLimits limits,
+        out int written) =>
+        BinaryCodec.TryEncode<TcpAttachmentRefSchemaEncoder, TcpAttachmentRef>(in value, destination, limits, out written);
+}
+
+public readonly struct TcpAttachmentRefSchemaEncoder : IBinaryEncoder<TcpAttachmentRefSchemaEncoder, TcpAttachmentRef>
+{
+    public static BinaryStatus Write(ref BinaryWriteCursor writer, in TcpAttachmentRef value)
+    {
+        writer.WriteInt32(CoreCommandFieldNumbers.TcpAttachmentRef.RefVersion, value.RefVersion);
+        writer.WriteString(CoreCommandFieldNumbers.TcpAttachmentRef.AttachmentId, value.AttachmentId);
+        if (value.FileName is { } fileName)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.TcpAttachmentRef.FileName, fileName);
+        }
+
+        writer.WriteString(CoreCommandFieldNumbers.TcpAttachmentRef.ContentType, value.ContentType);
+        writer.WriteInt64(CoreCommandFieldNumbers.TcpAttachmentRef.SizeBytes, value.SizeBytes);
+        writer.WriteInt32(CoreCommandFieldNumbers.TcpAttachmentRef.Status, value.Status);
+        if (value.DownloadApiHint is { } downloadApiHint)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.TcpAttachmentRef.DownloadApiHint, downloadApiHint);
+        }
+
+        if (value.DownloadToken is { } downloadToken)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.TcpAttachmentRef.DownloadToken, downloadToken);
+        }
+
+        if (value.ThumbnailApiHint is { } thumbnailApiHint)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.TcpAttachmentRef.ThumbnailApiHint, thumbnailApiHint);
+        }
+
+        writer.WriteBool(CoreCommandFieldNumbers.TcpAttachmentRef.IsVoice, value.IsVoice);
+        if (value.VoiceCodec is { } voiceCodec)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceCodec, voiceCodec);
+        }
+
+        if (value.VoiceContainer is { } voiceContainer)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceContainer, voiceContainer);
+        }
+
+        if (value.VoiceDurationMs is { } voiceDurationMs)
+        {
+            writer.WriteInt64(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceDurationMs, voiceDurationMs);
+        }
+
+        if (value.VoiceSampleRateHz is { } voiceSampleRateHz)
+        {
+            writer.WriteInt32(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceSampleRateHz, voiceSampleRateHz);
+        }
+
+        if (value.VoiceChannels is { } voiceChannels)
+        {
+            writer.WriteInt32(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceChannels, voiceChannels);
+        }
+
+        return writer.Status;
+    }
+}
+
+[TcpBinaryContract(typeof(MessageReactionSummary))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageReactionSummary.Emoji, nameof(MessageReactionSummary.Emoji))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageReactionSummary.Count, nameof(MessageReactionSummary.Count))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageReactionSummary.ReactedByMe, nameof(MessageReactionSummary.ReactedByMe))]
+public static partial class MessageReactionSummarySchema
+{
+    public static BinaryStatus TryEncode(
+        in MessageReactionSummary value,
+        Span<byte> destination,
+        BinaryLimits limits,
+        out int written) =>
+        BinaryCodec.TryEncode<MessageReactionSummarySchemaEncoder, MessageReactionSummary>(in value, destination, limits, out written);
+}
+
+public readonly struct MessageReactionSummarySchemaEncoder : IBinaryEncoder<MessageReactionSummarySchemaEncoder, MessageReactionSummary>
+{
+    public static BinaryStatus Write(ref BinaryWriteCursor writer, in MessageReactionSummary value)
+    {
+        writer.WriteString(CoreCommandFieldNumbers.MessageReactionSummary.Emoji, value.Emoji);
+        writer.WriteInt32(CoreCommandFieldNumbers.MessageReactionSummary.Count, value.Count);
+        writer.WriteBool(CoreCommandFieldNumbers.MessageReactionSummary.ReactedByMe, value.ReactedByMe);
+        return writer.Status;
+    }
+}
+
+[TcpBinaryContract(typeof(MessageHistoryItem))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.MessageId, nameof(MessageHistoryItem.MessageId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ClientMessageId, nameof(MessageHistoryItem.ClientMessageId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.SenderUserId, nameof(MessageHistoryItem.SenderUserId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ReceiverUserId, nameof(MessageHistoryItem.ReceiverUserId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ConversationId, nameof(MessageHistoryItem.ConversationId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.Content, nameof(MessageHistoryItem.Content))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ReceivedAtMs, nameof(MessageHistoryItem.ReceivedAtMs))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.DeliveredAtMs, nameof(MessageHistoryItem.DeliveredAtMs))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ReadAtMs, nameof(MessageHistoryItem.ReadAtMs))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.RecalledAtMs, nameof(MessageHistoryItem.RecalledAtMs))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.EditVersion, nameof(MessageHistoryItem.EditVersion))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.EditedAtMs, nameof(MessageHistoryItem.EditedAtMs))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ChangedAtMs, nameof(MessageHistoryItem.ChangedAtMs))]
+[TcpBinaryNestedField(CoreCommandFieldNumbers.MessageHistoryItem.Attachments, nameof(MessageHistoryItem.Attachments), typeof(TcpAttachmentRefSchema))]
+[TcpBinaryNestedField(CoreCommandFieldNumbers.MessageHistoryItem.Reactions, nameof(MessageHistoryItem.Reactions), typeof(MessageReactionSummarySchema))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ReplyToMessageId, nameof(MessageHistoryItem.ReplyToMessageId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ReplyToSenderUserId, nameof(MessageHistoryItem.ReplyToSenderUserId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ReplyToPreview, nameof(MessageHistoryItem.ReplyToPreview))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ForwardedFromMessageId, nameof(MessageHistoryItem.ForwardedFromMessageId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ForwardedFromSenderUserId, nameof(MessageHistoryItem.ForwardedFromSenderUserId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryItem.ForwardedFromPreview, nameof(MessageHistoryItem.ForwardedFromPreview))]
+[TcpBinaryRepeatedField(CoreCommandFieldNumbers.MessageHistoryItem.MentionedUserIds, nameof(MessageHistoryItem.MentionedUserIds))]
+[TcpBinaryRepeatedField(CoreCommandFieldNumbers.MessageHistoryItem.MentionedRoles, nameof(MessageHistoryItem.MentionedRoles))]
+public static partial class MessageHistoryItemSchema
+{
+    public static BinaryStatus TryEncode(
+        in MessageHistoryItem value,
+        Span<byte> destination,
+        BinaryLimits limits,
+        out int written) =>
+        BinaryCodec.TryEncode<MessageHistoryItemSchemaEncoder, MessageHistoryItem>(in value, destination, limits, out written);
+}
+
+public readonly struct MessageHistoryItemSchemaEncoder : IBinaryEncoder<MessageHistoryItemSchemaEncoder, MessageHistoryItem>
+{
+    public static BinaryStatus Write(ref BinaryWriteCursor writer, in MessageHistoryItem value)
+    {
+        writer.WriteString(CoreCommandFieldNumbers.MessageHistoryItem.MessageId, value.MessageId);
+        writer.WriteString(CoreCommandFieldNumbers.MessageHistoryItem.ClientMessageId, value.ClientMessageId);
+        writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.SenderUserId, value.SenderUserId);
+        writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.ReceiverUserId, value.ReceiverUserId);
+        if (value.ConversationId is { } conversationId)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.MessageHistoryItem.ConversationId, conversationId);
+        }
+
+        writer.WriteString(CoreCommandFieldNumbers.MessageHistoryItem.Content, value.Content);
+        writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.ReceivedAtMs, value.ReceivedAtMs);
+        if (value.DeliveredAtMs is { } deliveredAtMs)
+        {
+            writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.DeliveredAtMs, deliveredAtMs);
+        }
+
+        if (value.ReadAtMs is { } readAtMs)
+        {
+            writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.ReadAtMs, readAtMs);
+        }
+
+        if (value.RecalledAtMs is { } recalledAtMs)
+        {
+            writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.RecalledAtMs, recalledAtMs);
+        }
+
+        writer.WriteInt32(CoreCommandFieldNumbers.MessageHistoryItem.EditVersion, value.EditVersion);
+        if (value.EditedAtMs is { } editedAtMs)
+        {
+            writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.EditedAtMs, editedAtMs);
+        }
+
+        writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.ChangedAtMs, value.ChangedAtMs);
+
+        if (value.Attachments is { } attachments)
+        {
+            foreach (TcpAttachmentRef attachment in attachments)
+            {
+                if (!writer.TryAddCollectionElement(CoreCommandFieldNumbers.MessageHistoryItem.Attachments)) return writer.Status;
+                writer.WriteNested<TcpAttachmentRefSchemaEncoder, TcpAttachmentRef>(CoreCommandFieldNumbers.MessageHistoryItem.Attachments, in attachment, allowRepeatedFieldNumber: true);
+            }
+        }
+
+        if (value.Reactions is { } reactions)
+        {
+            foreach (MessageReactionSummary reaction in reactions)
+            {
+                if (!writer.TryAddCollectionElement(CoreCommandFieldNumbers.MessageHistoryItem.Reactions)) return writer.Status;
+                writer.WriteNested<MessageReactionSummarySchemaEncoder, MessageReactionSummary>(CoreCommandFieldNumbers.MessageHistoryItem.Reactions, in reaction, allowRepeatedFieldNumber: true);
+            }
+        }
+
+        if (value.ReplyToMessageId is { } replyToMessageId)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.MessageHistoryItem.ReplyToMessageId, replyToMessageId);
+        }
+
+        if (value.ReplyToSenderUserId is { } replyToSenderUserId)
+        {
+            writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.ReplyToSenderUserId, replyToSenderUserId);
+        }
+
+        if (value.ReplyToPreview is { } replyToPreview)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.MessageHistoryItem.ReplyToPreview, replyToPreview);
+        }
+
+        if (value.ForwardedFromMessageId is { } forwardedFromMessageId)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.MessageHistoryItem.ForwardedFromMessageId, forwardedFromMessageId);
+        }
+
+        if (value.ForwardedFromSenderUserId is { } forwardedFromSenderUserId)
+        {
+            writer.WriteInt64(CoreCommandFieldNumbers.MessageHistoryItem.ForwardedFromSenderUserId, forwardedFromSenderUserId);
+        }
+
+        if (value.ForwardedFromPreview is { } forwardedFromPreview)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.MessageHistoryItem.ForwardedFromPreview, forwardedFromPreview);
+        }
+
+        if (value.MentionedUserIds is { } mentionedUserIds)
+        {
+            foreach (long mentionedUserId in mentionedUserIds)
+            {
+                if (!writer.TryAddCollectionElement(CoreCommandFieldNumbers.MessageHistoryItem.MentionedUserIds)) return writer.Status;
+                writer.WriteRepeatedInt64(CoreCommandFieldNumbers.MessageHistoryItem.MentionedUserIds, mentionedUserId);
+            }
+        }
+
+        if (value.MentionedRoles is { } mentionedRoles)
+        {
+            foreach (string mentionedRole in mentionedRoles)
+            {
+                if (!writer.TryAddCollectionElement(CoreCommandFieldNumbers.MessageHistoryItem.MentionedRoles)) return writer.Status;
+                writer.WriteRepeatedString(CoreCommandFieldNumbers.MessageHistoryItem.MentionedRoles, mentionedRole);
+            }
+        }
+
+        return writer.Status;
+    }
+}
+
+[TcpBinaryContract(typeof(MessageHistoryResponse))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryResponse.RequestId, nameof(MessageHistoryResponse.RequestId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryResponse.ConversationId, nameof(MessageHistoryResponse.ConversationId))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryResponse.Succeeded, nameof(MessageHistoryResponse.Succeeded))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryResponse.ErrorCode, nameof(MessageHistoryResponse.ErrorCode))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryResponse.ErrorMessage, nameof(MessageHistoryResponse.ErrorMessage))]
+[TcpBinaryNestedField(CoreCommandFieldNumbers.MessageHistoryResponse.Items, nameof(MessageHistoryResponse.Items), typeof(MessageHistoryItemSchema))]
+[TcpBinaryNestedField(CoreCommandFieldNumbers.MessageHistoryResponse.NextCursor, nameof(MessageHistoryResponse.NextCursor), typeof(MessageHistoryCursorSchema))]
+[TcpBinaryField(CoreCommandFieldNumbers.MessageHistoryResponse.HasMore, nameof(MessageHistoryResponse.HasMore))]
+public static partial class MessageHistoryResponseSchema
+{
+    public static BinaryStatus TryEncode(
+        in MessageHistoryResponse value,
+        Span<byte> destination,
+        BinaryLimits limits,
+        out int written) =>
+        BinaryCodec.TryEncode<MessageHistoryResponseSchemaEncoder, MessageHistoryResponse>(in value, destination, limits, out written);
+}
+
+public readonly struct MessageHistoryResponseSchemaEncoder : IBinaryEncoder<MessageHistoryResponseSchemaEncoder, MessageHistoryResponse>
+{
+    public static BinaryStatus Write(ref BinaryWriteCursor writer, in MessageHistoryResponse value)
+    {
+        if (value.RequestId is { } requestId)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.MessageHistoryResponse.RequestId, requestId);
+        }
+
+        if (value.ConversationId is { } conversationId)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.MessageHistoryResponse.ConversationId, conversationId);
+        }
+
+        writer.WriteBool(CoreCommandFieldNumbers.MessageHistoryResponse.Succeeded, value.Succeeded);
+        if (value.ErrorCode is { } errorCode)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.MessageHistoryResponse.ErrorCode, errorCode);
+        }
+
+        if (value.ErrorMessage is { } errorMessage)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.MessageHistoryResponse.ErrorMessage, errorMessage);
+        }
+
+        if (value.Items is { } items)
+        {
+            foreach (MessageHistoryItem item in items)
+            {
+                if (!writer.TryAddCollectionElement(CoreCommandFieldNumbers.MessageHistoryResponse.Items)) return writer.Status;
+                writer.WriteNested<MessageHistoryItemSchemaEncoder, MessageHistoryItem>(CoreCommandFieldNumbers.MessageHistoryResponse.Items, in item, allowRepeatedFieldNumber: true);
+            }
+        }
+
+        if (value.NextCursor is { } nextCursor)
+        {
+            writer.WriteNested<MessageHistoryCursorSchemaEncoder, MessageHistoryCursor>(CoreCommandFieldNumbers.MessageHistoryResponse.NextCursor, in nextCursor);
+        }
+
+        writer.WriteBool(CoreCommandFieldNumbers.MessageHistoryResponse.HasMore, value.HasMore);
         return writer.Status;
     }
 }

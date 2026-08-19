@@ -123,6 +123,68 @@ public sealed class TcpBinaryWireCodecTests
     }
 
     [Fact]
+    public void HistoryPageRoundTripsThroughTheRegistryDispatch()
+    {
+        var response = new MessageHistoryResponse
+        {
+            RequestId = "reg-page",
+            ConversationId = "conv-1",
+            Succeeded = true,
+            ErrorCode = null,
+            ErrorMessage = null,
+            Items =
+            [
+                new MessageHistoryItem
+                {
+                    MessageId = "m-1",
+                    ClientMessageId = "cm-1",
+                    SenderUserId = 7,
+                    ReceiverUserId = 8,
+                    ConversationId = "conv-1",
+                    Content = "hello",
+                    ReceivedAtMs = 1_700_000_000_100,
+                    ChangedAtMs = 1_700_000_000_100,
+                    EditVersion = 1,
+                    MentionedUserIds = [9],
+                    MentionedRoles = ["role-a"]
+                }
+            ],
+            NextCursor = new MessageHistoryCursor
+            {
+                ReceivedAtMs = 1_700_000_000_100,
+                ChangedAtMs = 1_700_000_000_100,
+                MessageId = "m-1"
+            },
+            HasMore = true
+        };
+
+        TcpBinaryWireDecode spanResult = TcpBinaryWireCodec.TryDecode(
+            PacketCommand.MessageHistoryPage,
+            Encode(in response, MessageHistoryResponseSchema.TryEncode, Limits),
+            Limits);
+
+        Assert.Equal(TcpBinaryWireStatus.Decoded, spanResult.Status);
+        var spanActual = Assert.IsType<MessageHistoryResponse>(spanResult.Value);
+        Assert.Equal(response.RequestId, spanActual.RequestId);
+        Assert.Equal(response.Succeeded, spanActual.Succeeded);
+        Assert.Single(spanActual.Items);
+        Assert.Equal(response.Items[0].MessageId, spanActual.Items[0].MessageId);
+        Assert.Equal(response.Items[0].MentionedUserIds, spanActual.Items[0].MentionedUserIds);
+        Assert.NotNull(spanActual.NextCursor);
+        Assert.Equal(response.NextCursor.MessageId, spanActual.NextCursor.MessageId);
+        Assert.Equal(response.HasMore, spanActual.HasMore);
+
+        ReadOnlySequence<byte> segmented = Segmented(
+            Encode(in response, MessageHistoryResponseSchema.TryEncode, Limits),
+            1);
+        TcpBinaryWireDecode sequenceResult = TcpBinaryWireCodec.TryDecode(PacketCommand.MessageHistoryPage, in segmented, Limits);
+        Assert.Equal(TcpBinaryWireStatus.Decoded, sequenceResult.Status);
+        var sequenceActual = Assert.IsType<MessageHistoryResponse>(sequenceResult.Value);
+        Assert.Single(sequenceActual.Items);
+        Assert.Equal(response.Items[0].Content, sequenceActual.Items[0].Content);
+    }
+
+    [Fact]
     public void UncoveredCommandsFailClosed()
     {
         foreach (PacketCommand command in new[]
@@ -130,7 +192,6 @@ public sealed class TcpBinaryWireCodecTests
                      PacketCommand.Heartbeat,
                      PacketCommand.AuthenticationRequest,
                      PacketCommand.ChatMessage,
-                     PacketCommand.MessageHistoryPage,
                      PacketCommand.RelationshipListRequest,
                      PacketCommand.SyncBootstrapRequest,
                      PacketCommand.CallCommandRequest

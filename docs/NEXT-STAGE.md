@@ -14,11 +14,13 @@ Shared 只拥有跨进程、可版本化且至少有两个真实消费者的契�
 4. 完成后停止无边界扩张。剩余握手后目录按真实功能需要逐批补齐，完整目录与双端接入归入后续 `BIN-INTEGRATION-3`，不阻塞关系、语音或通话开发。
 
 > 状态（2026-08-19）：**已收口**。当前展开批次完成测试级收口，Shared 全量回归全绿
-> （Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 38 / Generator 15 / Architecture 110），
-> `dotnet build -c Release` 0 警告 0 错误。生产 Schemas 程序集 + `TcpBinaryWireCodec` 寄存器本批仅
-> 收口 6 个控制命令（`ClientHello/ServerHello/GoAway/ResumeResponse/ProtocolErrorFrame/MessageHistoryRequest`），
-> 对未覆盖命令与畸形/超限 payload 一律 fail-closed，不构成半套运行入口；会话列表/History/Sync response 等
-> 响应 schema 按钱包设计留在测试消费者侧离线验证（字段号由消费者侧持有，见 BINARY-PROTOCOL.md），不进寄存器。
+> （Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 39 / Generator 15 / Architecture 110），
+> `dotnet build -c Release` 0 警告 0 错误。生产 Schemas 程序集 + `TcpBinaryWireCodec` 寄存器本批
+> 收口 7 个命令（`ClientHello/ServerHello/GoAway/ResumeResponse/ProtocolErrorFrame/MessageHistoryRequest/
+> MessageHistoryPage`，其中 `MessageHistoryPage` 复用 `MessageHistoryResponse` schema 及其嵌套
+> `MessageHistoryItem/MessageHistoryCursor/TcpAttachmentRef/MessageReactionSummary` 生产 schema），
+> 对未覆盖命令与畸形/超限 payload 一律 fail-closed，不构成半套运行入口；会话列表与 `SyncBootstrapResponse`
+> 等响应 schema 按钱包设计留在测试消费者侧离线验证（字段号由消费者侧持有，见 BINARY-PROTOCOL.md），不进寄存器。
 > 未覆盖命令已给出按功能分组的明确清单（认证/心跳/消息正文/历史会话/在线/群组/关系/附件/推送/回执/通话），
 > 详见 [BINARY-PROTOCOL.md](BINARY-PROTOCOL.md)。`ClientHello/ServerHello` 仍只在离线证据中验证，
 > 生产握手继续 JSON。
@@ -66,11 +68,13 @@ Gateway 侧 `HistoryWireMapper.MapAttachments` 已完成语音字段映射并新
 > 状态（2026-08-19）：双端接入前的共享契约层与寄存器已完成——
 > 新增生产 schema 程序集 `ChatApp.Protocol.Tcp.Binary.Schemas`（`src/` 内第 7 个契约包，
 > 覆盖 `ClientHello/ServerHello/GoAway/ResumeResponse/ProtocolErrorFrame/MessageHistoryRequest/
-> MessageHistoryCursor` 真实字段号 + 手写 encoder + generator 生成 decoder）+ 命令→schema
-> 寄存器 `TcpBinaryWireCodec`（未覆盖命令、畸形/超限一律 fail-closed）。新增 `TcpBinaryWireCodecTests`
-> 7 项；Shared 全量回归 Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 38 / Generator 15 /
-> Architecture 110 通过，`dotnet build -c Release` 0 警告 0 错误。`ClientHello/ServerHello` 仅在
-> 离线证据中验证，生产握手继续 JSON。实际双 codec 接入、混合格式 fanout 与 5–20 分钟短测仍待主链路推进。
+> MessageHistoryCursor` 真实字段号 + 手写 encoder + generator 生成 decoder，并已纳入 History response：
+> `MessageHistoryResponse` 及其嵌套 `MessageHistoryItem/TcpAttachmentRef/MessageReactionSummary` 生产 schema）
+> + 命令→schema 寄存器 `TcpBinaryWireCodec`（已纳入 `MessageHistoryPage`→`MessageHistoryResponse`；
+> 未覆盖命令、畸形/超限一律 fail-closed）。新增 `TcpBinaryWireCodecTests` 8 项；Shared 全量回归
+> Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 39 / Generator 15 / Architecture 110 通过，
+> `dotnet build -c Release` 0 警告 0 错误。`ClientHello/ServerHello` 仅在离线证据中验证，生产握手继续 JSON。
+> 实际双 codec 接入、混合格式 fanout 与 5–20 分钟短测仍待主链路推进。
 > 详细 wire 与预算约束见 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)。
 
 详细 wire、内存与 pointer 约束唯一维护在 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)，不要复制到业务路线。
