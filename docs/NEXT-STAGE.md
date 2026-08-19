@@ -74,8 +74,18 @@ Gateway 侧 `HistoryWireMapper.MapAttachments` 已完成语音字段映射并新
 > 未覆盖命令、畸形/超限一律 fail-closed）。新增 `TcpBinaryWireCodecTests` 8 项；Shared 全量回归
 > Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 39 / Generator 15 / Architecture 110 通过，
 > `dotnet build -c Release` 0 警告 0 错误。`ClientHello/ServerHello` 仅在离线证据中验证，生产握手继续 JSON。
-> 实际双 codec 接入、混合格式 fanout 与 5–20 分钟短测仍待主链路推进。
-> 详细 wire 与预算约束见 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)。
+>
+> **门控现状**：连接级双 codec 切换受硬条件门控，当前**未达门槛，保持 JSON**，不得开启切换——
+> - **[未满足] 实际运行命令目录完整**：寄存器仅覆盖 7/85 命令值（`ClientHello/ServerHello/GoAway/
+>   ResumeResponse/ProtocolErrorFrame/MessageHistoryRequest/MessageHistoryPage/Error`），主链路实际用到的
+>   `ChatMessage/Heartbeat`、关系、通话等大量命令仍无 schema；帧头无逐帧格式位，残缺目录下无法安全启用。
+> - **[已满足] 主链路前置**：关系/语音消息/通话主链路均已关闭，不再阻塞此支撑项。
+> - **[未满足] 收益与稳定性证据**：缺 80/320/640 msg/s 5–20 分钟短测；须证明稳定收益、零漏投/重复、p99 无不可解释回退。
+> - **[未满足] 双端实现与验收**：双 codec 接入、协商后固定格式、fanout 分组共享、JSON fallback、GoAway/重连、混合 fanout 与短测均未开始。
+>
+> 完整未覆盖命令按功能分组的可度量清单（含各组命令数与总体 7 覆盖/78 未覆盖统计）见
+> [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)。`ClientHello/ServerHello` 仅在离线证据中验证，生产握手继续 JSON。
+> 实际双 codec 接入、混合格式 fanout 与 5–20 分钟短测仍待命令目录与收益证据达标后推进。
 
 详细 wire、内存与 pointer 约束唯一维护在 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)，不要复制到业务路线。
 
