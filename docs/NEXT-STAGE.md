@@ -13,6 +13,16 @@ Shared 只拥有跨进程、可版本化且至少有两个真实消费者的契�
 3. 核对所有新 schema 只引用 canonical TCP DTO，没有复制 Gateway/Client/Realtime 类型；失败 status、required/presence、时间单位和 reserved field number 必须明确。
 4. 完成后停止无边界扩张。剩余握手后目录按真实功能需要逐批补齐，完整目录与双端接入归入后续 `BIN-INTEGRATION-3`，不阻塞关系、语音或通话开发。
 
+> 状态（2026-08-19）：**已收口**。当前展开批次完成测试级收口，Shared 全量回归全绿
+> （Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 38 / Generator 15 / Architecture 110），
+> `dotnet build -c Release` 0 警告 0 错误。生产 Schemas 程序集 + `TcpBinaryWireCodec` 寄存器本批仅
+> 收口 6 个控制命令（`ClientHello/ServerHello/GoAway/ResumeResponse/ProtocolErrorFrame/MessageHistoryRequest`），
+> 对未覆盖命令与畸形/超限 payload 一律 fail-closed，不构成半套运行入口；会话列表/History/Sync response 等
+> 响应 schema 按钱包设计留在测试消费者侧离线验证（字段号由消费者侧持有，见 BINARY-PROTOCOL.md），不进寄存器。
+> 未覆盖命令已给出按功能分组的明确清单（认证/心跳/消息正文/历史会话/在线/群组/关系/附件/推送/回执/通话），
+> 详见 [BINARY-PROTOCOL.md](BINARY-PROTOCOL.md)。`ClientHello/ServerHello` 仍只在离线证据中验证，
+> 生产握手继续 JSON。
+
 完成标准：当前 diff 内只有一套 Core/Generator/schema 语义，Release/架构/golden/fuzz 全绿；生产格式仍为 JSON，未完成的命令目录有明确清单而不是半套运行入口。
 
 ## 当前 P0：`REL-E2E-4` 契约支持
