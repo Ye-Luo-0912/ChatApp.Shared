@@ -53,6 +53,16 @@ Gateway 侧 `HistoryWireMapper.MapAttachments` 已完成语音字段映射并新
 
 功能命令目录稳定后，再由 Shared 补齐对应 schema，Gateway/Client 接入同一 encoder/decoder。`ClientHello/ServerHello` 和首版 Resume 保持 JSON；协商后 session 固定 exact format，混合连接按格式共享编码。只做 5–20 分钟正确性与收益短测，收益不足时继续使用 JSON。
 
+> 状态（2026-08-19）：双端接入前的共享契约层与寄存器已完成——
+> 新增生产 schema 程序集 `ChatApp.Protocol.Tcp.Binary.Schemas`（`src/` 内第 7 个契约包，
+> 覆盖 `ClientHello/ServerHello/GoAway/ResumeResponse/ProtocolErrorFrame/MessageHistoryRequest/
+> MessageHistoryCursor` 真实字段号 + 手写 encoder + generator 生成 decoder）+ 命令→schema
+> 寄存器 `TcpBinaryWireCodec`（未覆盖命令、畸形/超限一律 fail-closed）。新增 `TcpBinaryWireCodecTests`
+> 7 项；Shared 全量回归 Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 38 / Generator 15 /
+> Architecture 110 通过，`dotnet build -c Release` 0 警告 0 错误。`ClientHello/ServerHello` 仅在
+> 离线证据中验证，生产握手继续 JSON。实际双 codec 接入、混合格式 fanout 与 5–20 分钟短测仍待主链路推进。
+> 详细 wire 与预算约束见 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)。
+
 详细 wire、内存与 pointer 约束唯一维护在 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)，不要复制到业务路线。
 
 ## 接手约束
