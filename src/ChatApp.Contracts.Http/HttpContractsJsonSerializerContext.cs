@@ -1,7 +1,6 @@
 using System.Text.Json.Serialization;
 using ChatApp.Contracts.Http.Attachments;
 using ChatApp.Contracts.Http.Auth;
-using ChatApp.Contracts.Http.Calls;
 using ChatApp.Contracts.Http.Common;
 using ChatApp.Contracts.Http.Friends;
 using ChatApp.Contracts.Http.Sessions;
