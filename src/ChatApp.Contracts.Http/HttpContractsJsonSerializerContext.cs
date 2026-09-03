@@ -38,4 +38,5 @@ namespace ChatApp.Contracts.Http;
 [JsonSerializable(typeof(SendFriendRequestResponse))]
 [JsonSerializable(typeof(List<SessionDevice>))]
 [JsonSerializable(typeof(RevokeSessionsResponse))]
+[JsonSerializable(typeof(EndpointDescriptor))]
 public partial class HttpContractsJsonSerializerContext : JsonSerializerContext;

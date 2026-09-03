@@ -119,7 +119,7 @@ public sealed class BinaryGeneratorBoundaryTests
                 sourceDirectory,
                 "*.cs",
                 SearchOption.AllDirectories)
-            .Where(path => File.ReadAllText(path).Contains("unsafe", StringComparison.Ordinal))
+            .Where(path => CSharpCodeScanner.ContainsUnsafeKeyword(File.ReadAllText(path)))
             .Select(path => Path.GetRelativePath(repositoryRoot, path).Replace('\\', '/'))
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -135,7 +135,7 @@ public sealed class BinaryGeneratorBoundaryTests
             Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.AllDirectories),
             sourcePath => Assert.DoesNotContain(
                 "System.Runtime.CompilerServices.Unsafe",
-                File.ReadAllText(sourcePath),
+                CSharpCodeScanner.StripCommentsAndLiterals(File.ReadAllText(sourcePath)),
                 StringComparison.Ordinal));
     }
 
