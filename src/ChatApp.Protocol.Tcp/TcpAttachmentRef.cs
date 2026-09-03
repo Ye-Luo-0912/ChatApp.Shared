@@ -30,4 +30,11 @@ public sealed class TcpAttachmentRef
 
     /// <summary>声道数。仅语音附件有值。</summary>
     public short? VoiceChannels { get; set; }
+
+    /// <summary>
+    /// 语音波形采样峰值包络（VOICE-MSG-2 可选 waveform）：每字节 0–255 归一化幅度，
+    /// 由录音端降采样生成。可选字段——缺省/空表示无波形（旧客户端/旧录音），
+    /// 消费端必须以进度条降级渲染。
+    /// </summary>
+    public byte[]? VoiceWaveformPeaks { get; set; }
 }

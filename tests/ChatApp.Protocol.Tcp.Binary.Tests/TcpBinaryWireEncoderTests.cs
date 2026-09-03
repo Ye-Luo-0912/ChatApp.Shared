@@ -275,6 +275,70 @@ public sealed class TcpBinaryWireEncoderTests
     }
 
     [Fact]
+    public void VoiceWaveformPeaks_RoundTripsThroughChatMessage_AndAbsentStaysNull()
+    {
+        var withWaveform = new ChatMessage
+        {
+            MessageId = "msg-wf-1",
+            TargetUserId = 20002,
+            SenderUserId = 20001,
+            Content = "voice",
+            SentAtMs = 1_700_000_000_500,
+            AttachmentIds = new[] { "att-wf" },
+            Attachments = new[]
+            {
+                new TcpAttachmentRef
+                {
+                    AttachmentId = "att-wf",
+                    ContentType = "audio/wav",
+                    SizeBytes = 112_044,
+                    Status = 1,
+                    IsVoice = true,
+                    VoiceCodec = "pcm",
+                    VoiceContainer = "wav",
+                    VoiceDurationMs = 3_500,
+                    VoiceSampleRateHz = 16_000,
+                    VoiceChannels = 1,
+                    VoiceWaveformPeaks = [0, 64, 128, 255, 128, 64]
+                }
+            }
+        };
+        AssertRoundTrip(PacketCommand.ChatMessage, withWaveform, (expected, actual) =>
+        {
+            var expectedPeaks = expected.Attachments![0].VoiceWaveformPeaks!;
+            var actualPeaks = actual.Attachments![0].VoiceWaveformPeaks;
+            return actualPeaks is not null && expectedPeaks.SequenceEqual(actualPeaks);
+        });
+
+        // 无 waveform 的语音附件：解码后保持 null（可选字段缺省语义）。
+        var withoutWaveform = new ChatMessage
+        {
+            MessageId = "msg-wf-2",
+            TargetUserId = 20002,
+            SenderUserId = 20001,
+            Content = "voice",
+            SentAtMs = 1_700_000_000_500,
+            AttachmentIds = new[] { "att-nowf" },
+            Attachments = new[]
+            {
+                new TcpAttachmentRef
+                {
+                    AttachmentId = "att-nowf",
+                    ContentType = "audio/wav",
+                    Status = 1,
+                    IsVoice = true
+                }
+            }
+        };
+        var payload = EncodeThroughRegistry(withoutWaveform);
+        var decoded = TcpBinaryWireCodec.TryDecode(
+            PacketCommand.ChatMessage, payload, Limits);
+        Assert.Equal(TcpBinaryWireStatus.Decoded, decoded.Status);
+        var actual = Assert.IsType<ChatMessage>(decoded.Value);
+        Assert.Null(actual.Attachments![0].VoiceWaveformPeaks);
+    }
+
+    [Fact]
     public void EncodeRegistryFailsClosedWhenDestinationIsTooSmall()
     {
         var message = new ChatMessage

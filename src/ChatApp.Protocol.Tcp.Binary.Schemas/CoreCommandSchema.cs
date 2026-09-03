@@ -98,6 +98,7 @@ public static class CoreCommandFieldNumbers
         public const int VoiceDurationMs = 13;
         public const int VoiceSampleRateHz = 14;
         public const int VoiceChannels = 15;
+        public const int VoiceWaveformPeaks = 16;
     }
 
     public static class MessageReactionSummary
@@ -1296,6 +1297,7 @@ public readonly struct MessageHistoryCursorSchemaEncoder : IBinaryEncoder<Messag
 [TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceDurationMs, nameof(TcpAttachmentRef.VoiceDurationMs))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceSampleRateHz, nameof(TcpAttachmentRef.VoiceSampleRateHz))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceChannels, nameof(TcpAttachmentRef.VoiceChannels))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceWaveformPeaks, nameof(TcpAttachmentRef.VoiceWaveformPeaks))]
 public static partial class TcpAttachmentRefSchema
 {
     public static BinaryStatus TryEncode(
@@ -1359,6 +1361,12 @@ public readonly struct TcpAttachmentRefSchemaEncoder : IBinaryEncoder<TcpAttachm
         if (value.VoiceChannels is { } voiceChannels)
         {
             writer.WriteInt32(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceChannels, voiceChannels);
+        }
+
+        // 可选 waveform：仅语音附件且提供了包络才写（缺省/空 = 无波形，消费端降级渲染）。
+        if (value.IsVoice && value.VoiceWaveformPeaks is { Length: > 0 } waveformPeaks)
+        {
+            writer.WriteBytes(CoreCommandFieldNumbers.TcpAttachmentRef.VoiceWaveformPeaks, waveformPeaks);
         }
 
         return writer.Status;
