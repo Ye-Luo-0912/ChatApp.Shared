@@ -13,7 +13,7 @@
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <Authors>ChatApp</Authors>
     <Company>ChatApp</Company>
-    <VersionPrefix>0.5.3</VersionPrefix>
+    <VersionPrefix>0.5.5</VersionPrefix>
     <RepositoryType>git</RepositoryType>
     <PackageTags>ChatApp;contracts</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

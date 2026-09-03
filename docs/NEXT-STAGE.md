@@ -25,6 +25,11 @@ Shared 只拥有跨进程、可版本化且至少有两个真实消费者的契�
 > 详见 [BINARY-PROTOCOL.md](BINARY-PROTOCOL.md)。`ClientHello/ServerHello` 仍只在离线证据中验证，
 > 生产握手继续 JSON。
 
+> 后续进展（2026-08-20）：按 [BINARY-INTEGRATION-ROADMAP.md](BINARY-INTEGRATION-ROADMAP.md) P0–P7 全部落地，
+> 生产寄存器覆盖 84/85 命令值（可传输命令目录完整，唯一余量 `ResumeRequest` 非 wire 命令），
+> Shared 全量回归 Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 58 / Generator 15 / Architecture 110 全绿，
+> `dotnet build -c Release` 0 警告 0 错误。
+
 完成标准：当前 diff 内只有一套 Core/Generator/schema 语义，Release/架构/golden/fuzz 全绿；生产格式仍为 JSON，未完成的命令目录有明确清单而不是半套运行入口。
 
 ## 当前 P0：`REL-E2E-4` 契约支持
@@ -44,7 +49,31 @@ Shared 只拥有跨进程、可版本化且至少有两个真实消费者的契�
 （`IsVoice`/`VoiceCodec`/`VoiceContainer`/`VoiceDurationMs`/`VoiceSampleRateHz`/`VoiceChannels`），
 JSON golden/兼容/往返/畸形测试与二进制 fixture 已同步并全绿；二进制 field 10–15 已预留。
 Gateway 侧 `HistoryWireMapper.MapAttachments` 已完成语音字段映射并新增映射测试。
-剩余跨仓库工作：Client consumer fixture 与 Server/Client 端到端联调。
+剩余跨仓库工作：Client consumer fixture 已完成（Client 侧 VoiceAttachmentConsumerFixtureTests）；端到端联调已于 2026-08-30 在 relgate 真实全栈完成首轮（驱动 `.tmp-voice-e2e`），结果：实时消息路径语音 6 字段（IsVoice/VoiceCodec/VoiceContainer/VoiceDurationMs/VoiceSampleRateHz/VoiceChannels）在二进制/JSON 双格式下存活一致；发现并修复服务端 presign AllowedContentTypes 缺 audio/wav（客户端录音即 WAV，真实用户语音消息会在 presign 失败，已加入 appsettings 并重部署）；**剩余唯一缺口：历史路径语音元数据丢失——断点已精确定位（2026-08-30）**：Gateway 历史链路 `HistoryQueryCommandHandler.History.cs` → `_messageBus.QueryMessageHistoryAsync`（NATS → RealtimeServices）→ `HistoryWireMapper.MapAttachments`（映射器与 Realtime `AttachmentRef` 均已支持语音 6 字段，非断点）；断点在 **Realtime 消息落库**：`ChatApp.Realtime.Abstractions\Stores\RealtimeMessageRecord.AttachmentIds` 只持久化 `IReadOnlyList<string>` 附件 ID（:20），发送时携带的 `RealtimeAttachmentRef` 元数据快照在 IncomingMessageCommand → RealtimeMessageRecord 转换处被丢弃，历史重建按 ID 回查附件注册表（注册表亦无语音字段）。修复方向（2026-08-30 二次修正——历史附件是经 `DefaultMessageHistoryQueryProcessor.EnrichAsync(_attachmentStore, …)` 回查附件注册表构建的，因此正确落点是**附件注册表持久化语音字段**，而非消息内快照）：① `IncomingMessageCommand` 增加 `Attachments`（RealtimeAttachmentRef 元数据，Gateway 从解析出的 ChatMessage.Attachments 填充，构造点 `MessagingCommandHandler.ChatMessage.cs:107`）；② 附件绑定/建束链路（MessageCreateBundleWriter 的 bind SQL）把语音 6 字段写入附件行（附件表需加列 + migration）；③ `IRealtimeAttachmentStore.EnrichAsync` 读侧带出语音字段；④ 完成后重跑 `.tmp-voice-e2e` 全绿即完成 VOICE-MSG-2。注意 RealtimeServices 的 Postgres 读写两侧 （NpgsqlRealtimeMessageStore / NpgsqlRealtimeMessageHistoryStore）与表结构在 ChatApp.Realtime.Infrastructure.Postgres。
+
+> **VOICE-MSG-2 已完成（2026-08-31，附件注册表持久化语音 6 字段）**：
+> ① `ChatApp.Realtime.Contracts` 2.5.3：`IncomingMessageCommand.Attachments`
+> （与 AttachmentIds 对齐的元数据快照，可空；仅消息里出现的附件）；
+> ② Gateway `MessagingCommandHandler.ChatMessage` 新增 `MapUplinkAttachmentMetadata`
+> （只保留与 AttachmentIds 匹配的引用）填充命令，包 pin 升 Contracts 2.5.3 +
+> `ChatApp.Realtime.Integration` 3.1.4（source-gen 序列化必须重新生成才携带新字段——
+> 否则命令 JSON 静默丢字段）；
+> ③ 绑定链路持久化：`RealtimeMessageRecord.Attachments` → Processor 透传 →
+> `AttachmentWriteCommands.BindConfirmedToMessageAsync` 单条 `UPDATE … FROM unnest(7 数组)`
+> 同语句写 message_id 与语音 6 列（sender 值 COALESCE 优先、NULL 回退注册表现值；仅
+> "完整语音声明"生效，残缺声明按无元数据处理保消息必达，不触碰
+> `ck_attachments_voice_metadata`；RETURNING 需 `a.` 限定避免与 unnest 别名歧义 42702）；
+> ④ 读侧 `ListByMessageIdsAsync`/`AttachmentRefMapper`/`RealtimeHistoryAttachmentEnricher`
+> 本就携带语音字段（VOICE-MSG-1），注册表落列后历史即存活。测试：Realtime 单测新增
+> `AttachmentWriteCommandsVoiceMetadataTests` 7 项 + processor 快照透传 + enricher 语音回查
+> （20 项全绿；109 项 Testcontainers 用例无 Docker 环境失败为既有现象），Gateway 新增
+> `UplinkAttachmentMetadataTests` 6 项（全套 638 全绿），`VoiceAttachmentBindTests` 新增
+> 3 项 Testcontainers 回环用例（含"绑定带元数据 → ListByMessageIds 语音存活"）。
+> relgate 真实全栈验收：BinE2E 12/12、CallE2E 27/27、VoiceE2E 全绿（路径二 wire 元数据
+> 经注册表在历史存活；路径一仅 ids 上行无元数据来源，IsVoice=false 为当前架构正确行为，
+> 驱动断言已按此语义区分）。剩余（VOICE-MSG-2 之外）：Client 发送侧携带语音 ref
+> （`SendChatMessageAsync` 无重载，`MessageViewModel.SendVoiceRecordingAsync` 现仅 ids），
+> 或 Server 上传侧解析 WAV 写入注册表，才能让"真实客户端仅 ids 路径"的历史也带语音元数据。
 
 完成标准：Server/Realtime/Gateway/Client 使用同一语音元数据含义，文本和普通附件兼容不变，语音正文不进入 Shared payload。
 
@@ -61,6 +90,31 @@ Gateway 侧 `HistoryWireMapper.MapAttachments` 已完成语音字段映射并新
 
 补齐 scheme、host、port、SNI/target host 与最低 TLS policy，并覆盖旧 endpoint 默认值和不安全组合拒绝。证书链、pinning、开发例外和平台 API 留给消费者。
 
+**Shared 契约部分已完成（0.5.5）**：`ChatApp.Contracts.Http` 新增 `EndpointDescriptor`
+（scheme/host/port 可空=默认端口/SniTargetHost 可空/MinimumTls）、`EndpointScheme`
+（Http/Https/Tcp/TcpTls；数值 0 保留，缺失即 fail-closed）、`MinimumTlsPolicy`
+（None/Tls12OrAbove/Tls13Only）与纯校验策略 `EndpointPolicy`（固定顺序规则集：
+未知枚举值 fail-closed 不解释为安全默认 → host/SNI 结构规则与 253 上限 →
+无默认端口的 TCP scheme 必须显式 port → 明文 scheme 不得声明 TLS policy）。
+旧 `ServerEndpoint`（host/name/port）wire golden 不变；兼容语义=缺省字段保持旧行为：
+Https/TcpTls + None 表示消费者平台默认（不静默变严），port 空取 scheme 默认
+（80/443；TCP 无默认必须显式），SNI 空白回退 Host。JSON golden 往返、旧 endpoint
+兼容矩阵、不安全组合拒绝矩阵、未知枚举/可选字段演进与枚举数值稳定性测试已全绿。
+证书链校验、pinning、吊销模式、开发例外开关与平台 TLS API（SslStream/回调）均未进入 Shared。
+
+> 消费者接入完成（2026-08-30）：wire 采用加性扩展——`ServerEndpoint` 新增可选字段
+> `Scheme`/`SniTargetHost`/`MinimumTls`（wire 名 `scheme`/`sniTargetHost`/`minimumTls`，
+> 语义与 `EndpointDescriptor` 一一对应；未配置时字段不出现在 wire 上，旧形状逐字节不变）。
+> 生产者（ChatApp.Server）：`RealtimeGatewayOptions` 按部署配置生成元数据（明文部署缺省不下发、
+> 不自动变严；启动校验拒绝未定义枚举与"明文 scheme + TLS policy"组合），`HttpContractMapper`
+> 数值对齐转换下发。消费者（Chat_App）：`ServerEndpointImport` 把登录响应/手动导入输入经
+> `EndpointPolicy` 校验映射为本地 SQLite `Servers` 模型（缺省字段=旧行为 UseTls 既有默认，
+> 未知枚举 fail-closed 不猜安全默认），SNI 覆盖经 `TlsServerName` 接入 `TcpClientExample`
+> 目标主机（平台 TLS API 未动）。消费方 CPM/锁文件已升 0.5.5，五个契约包
+> （Contracts.Http/Protocol.Tcp/Binary.Core/Protocol.Tcp.Binary/Schemas）已 pack 并只增不删
+> 拷入三个本地 feed。兼容矩阵：新 Client↔旧 Server（缺省字段=旧行为）、旧 Client↔新 Server
+> （未知字段跳过）双向全绿。架构测试 unsafe 子串扫描已改为词法级扫描（注释/字符串不再误报）。
+
 ## 支撑项：`BIN-INTEGRATION-3`
 
 功能命令目录稳定后，再由 Shared 补齐对应 schema，Gateway/Client 接入同一 encoder/decoder。`ClientHello/ServerHello` 和首版 Resume 保持 JSON；协商后 session 固定 exact format，混合连接按格式共享编码。只做 5–20 分钟正确性与收益短测，收益不足时继续使用 JSON。
@@ -75,17 +129,17 @@ Gateway 侧 `HistoryWireMapper.MapAttachments` 已完成语音字段映射并新
 > Binary.Core 37 / EncoderOnly 1 / Protocol.Tcp.Binary 39 / Generator 15 / Architecture 110 通过，
 > `dotnet build -c Release` 0 警告 0 错误。`ClientHello/ServerHello` 仅在离线证据中验证，生产握手继续 JSON。
 >
-> **门控现状**：连接级双 codec 切换受硬条件门控，当前**未达门槛，保持 JSON**，不得开启切换——
-> - **[未满足] 实际运行命令目录完整**：寄存器仅覆盖 7/85 命令值（`ClientHello/ServerHello/GoAway/
->   ResumeResponse/ProtocolErrorFrame/MessageHistoryRequest/MessageHistoryPage/Error`），主链路实际用到的
->   `ChatMessage/Heartbeat`、关系、通话等大量命令仍无 schema；帧头无逐帧格式位，残缺目录下无法安全启用。
-> - **[已满足] 主链路前置**：关系/语音消息/通话主链路均已关闭，不再阻塞此支撑项。
-> - **[未满足] 收益与稳定性证据**：缺 80/320/640 msg/s 5–20 分钟短测；须证明稳定收益、零漏投/重复、p99 无不可解释回退。
-> - **[未满足] 双端实现与验收**：双 codec 接入、协商后固定格式、fanout 分组共享、JSON fallback、GoAway/重连、混合 fanout 与短测均未开始。
+> **门控现状（2026-08-30）**：四项硬门控**全部满足**，双 codec 接入与短测已完成——
+> - **[已满足] 实际运行命令目录完整**：按 [BINARY-INTEGRATION-ROADMAP.md](BINARY-INTEGRATION-ROADMAP.md) P0–P7 全部落地，寄存器覆盖 84/85 命令值（唯一余量 `ResumeRequest` 非真实 wire 命令，永不覆盖）。
+> - **[已满足] 主链路前置**：关系/语音消息/通话主链路均已关闭。
+> - **[已满足] 收益与稳定性证据**：80/320/640 msg/s 短测——payload 平均 -46.8~47.1%（275.5B→146.6B）、alloc/条 -13.5~16.5%、640/s CPU -28.5%、GC Gen0 -10~32%、p99 ≤1.9 ms 无不可解释回退；566,400 条消息零漏投/零重复。报告见 `ChatAppTCP_Server/scratch/binary-shorttest-report-20260830.md`（in-proc 口径局限已注明）。
+> - **[已满足] 双端实现与验收**：Gateway/Client 双 codec、协商后固定格式、fanout 分组共享、JSON fallback、GoAway/重连（Resume 保持 JSON）、混合 fanout、malformed/oversize fail-closed 均有集成测试覆盖（Gateway 630 全绿、Client 531 全绿）。
 >
-> 完整未覆盖命令按功能分组的可度量清单（含各组命令数与总体 7 覆盖/78 未覆盖统计）见
-> [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)。`ClientHello/ServerHello` 仅在离线证据中验证，生产握手继续 JSON。
-> 实际双 codec 接入、混合格式 fanout 与 5–20 分钟短测仍待命令目录与收益证据达标后推进。
+> JSON 默认路径未变：网关 `EnableBinaryPayloadFormat` 默认关闭、客户端默认声明能力并按服务端回应回退；正式启用为部署决策。
+> 双端 legacy JSON DTO ↔ 共享规范 DTO 映射层与实现细节见 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md) 的 BIN-INTEGRATION-3 节。
+> 跨进程真机验证（2026-08-30）：新构建部署至 relgate 远程全栈（Gateway 开启二进制协商）后，二进制 e2e 驱动
+> （`.tmp-bin-e2e`，复用真实 ChatSessionClient 经 SSH 隧道）12/12 通过——chatapp-bin-v1 协商、JSON fallback、
+> 双格式真实进程混布 fanout 双向消息往返、二进制 MessageAcknowledgement。
 
 详细 wire、内存与 pointer 约束唯一维护在 [`BINARY-PROTOCOL.md`](BINARY-PROTOCOL.md)，不要复制到业务路线。
 
