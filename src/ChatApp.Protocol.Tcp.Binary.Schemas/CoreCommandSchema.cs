@@ -276,6 +276,9 @@ public static class CoreCommandFieldNumbers
         public const int ExpiresAtMs = 4;
         public const int Nonce = 5;
         public const int Signature = 6;
+        // 0.5.7 群通话加性字段：Direct（缺省）时不写出，0.5.6 旧解码端零改动。
+        public const int CallKind = 7;
+        public const int Participants = 8;
     }
 
     public static class TcpCallCommandRequest
@@ -301,6 +304,9 @@ public static class CoreCommandFieldNumbers
         public const int Sdp = 6;
         public const int Revision = 7;
         public const int OccurredAtMs = 8;
+        // 0.5.7 群通话加性字段：1:1 既有信令不写出，0.5.6 旧解码端零改动。
+        public const int Event = 9;
+        public const int ParticipantUserId = 10;
     }
 
     public static class TcpCallCommandResponse
@@ -2201,6 +2207,8 @@ public readonly struct AttachmentDownloadAuthorizeResponseSchemaEncoder : IBinar
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallGrant.ExpiresAtMs, nameof(TcpCallGrant.ExpiresAtMs))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallGrant.Nonce, nameof(TcpCallGrant.Nonce))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallGrant.Signature, nameof(TcpCallGrant.Signature))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpCallGrant.CallKind, nameof(TcpCallGrant.CallKind))]
+[TcpBinaryRepeatedField(CoreCommandFieldNumbers.TcpCallGrant.Participants, nameof(TcpCallGrant.Participants))]
 public static partial class TcpCallGrantSchema
 {
     public static BinaryStatus TryEncode(
@@ -2223,6 +2231,21 @@ public readonly struct TcpCallGrantSchemaEncoder : IBinaryEncoder<TcpCallGrantSc
         if (value.Signature is { } signature)
         {
             writer.WriteString(CoreCommandFieldNumbers.TcpCallGrant.Signature, signature);
+        }
+
+        // 群通话 0.5.7 加性字段：Direct == 缺省语义 → null 与 Direct 均不写出，旧载荷逐字节不变。
+        if (value.CallKind is { } callKind && callKind != TcpCallKind.Direct)
+        {
+            writer.WriteUInt32(CoreCommandFieldNumbers.TcpCallGrant.CallKind, (byte)callKind);
+        }
+
+        if (value.Participants is { } participants)
+        {
+            foreach (long participantUserId in participants)
+            {
+                if (!writer.TryAddCollectionElement(CoreCommandFieldNumbers.TcpCallGrant.Participants)) return writer.Status;
+                writer.WriteRepeatedInt64(CoreCommandFieldNumbers.TcpCallGrant.Participants, participantUserId);
+            }
         }
 
         return writer.Status;
@@ -2287,6 +2310,8 @@ public readonly struct TcpCallCommandRequestSchemaEncoder : IBinaryEncoder<TcpCa
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallSignal.Sdp, nameof(TcpCallSignal.Sdp))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallSignal.Revision, nameof(TcpCallSignal.Revision))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallSignal.OccurredAtMs, nameof(TcpCallSignal.OccurredAtMs))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpCallSignal.Event, nameof(TcpCallSignal.Event))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpCallSignal.ParticipantUserId, nameof(TcpCallSignal.ParticipantUserId))]
 public static partial class TcpCallSignalSchema
 {
     public static BinaryStatus TryEncode(
@@ -2309,6 +2334,18 @@ public readonly struct TcpCallSignalSchemaEncoder : IBinaryEncoder<TcpCallSignal
         writer.WriteString(CoreCommandFieldNumbers.TcpCallSignal.Sdp, value.Sdp);
         writer.WriteInt64(CoreCommandFieldNumbers.TcpCallSignal.Revision, value.Revision);
         writer.WriteInt64(CoreCommandFieldNumbers.TcpCallSignal.OccurredAtMs, value.OccurredAtMs);
+
+        // 群通话 0.5.7 加性字段：1:1 既有信令（Event=null / ParticipantUserId=null）不写出。
+        if (value.Event is { } signalEvent)
+        {
+            writer.WriteString(CoreCommandFieldNumbers.TcpCallSignal.Event, signalEvent);
+        }
+
+        if (value.ParticipantUserId is { } participantUserId)
+        {
+            writer.WriteInt64(CoreCommandFieldNumbers.TcpCallSignal.ParticipantUserId, participantUserId);
+        }
+
         return writer.Status;
     }
 }

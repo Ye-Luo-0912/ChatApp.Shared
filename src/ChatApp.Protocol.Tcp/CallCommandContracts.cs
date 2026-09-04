@@ -38,6 +38,11 @@ namespace ChatApp.Shared.Protocol.Tcp;
 ///   <item><b>响应字节预算</b>：单响应 ≤ 32 KiB（<see cref="TcpCallConstants.MaxResponseBytes"/>）。</item>
 ///   <item><b>stale 值</b>：同一 call 的乱序/重复命令返回 <c>bad_request</c> 之外的稳定错误，见
 ///   <see cref="TcpCallErrorCode"/>。</item>
+///   <item><b>群通话（0.5.7 加性）</b>：<see cref="TcpCallGrant.CallKind"/>（Direct=1 缺省 /
+///   Group=2）与 <see cref="TcpCallGrant.Participants"/>（≤4 人、含主叫、升序）；群组 grant 的
+///   HMAC 覆盖全部参与者（<see cref="TcpCallGrantSignature"/>，Direct 载荷与 0.5.6 逐字节一致）。
+///   <see cref="TcpCallSignal.Event"/> 承载新世代 kind 词表（participant-joined/left、offer/
+///   answer/ice 等），接收端 unknown 值容忍跳过（前向兼容）。</item>
 /// </list>
 /// </section>
 public static class TcpCallConstants
@@ -53,6 +58,22 @@ public static class TcpCallConstants
 
     /// <summary>单响应最大字节数（UTF-8）。</summary>
     public const int MaxResponseBytes = 32 * 1024;
+
+    /// <summary>
+    /// 群组通话（Mesh 阶段一）grant 名单人数上限（含主叫）。成员集合 = grant 签发名单；
+    /// 成员变更 = 新 grant 批次 + revision 递增（见 group-call-sfu-design §4.2）。
+    /// </summary>
+    public const int MaxGroupCallParticipants = 4;
+
+    /// <summary>
+    /// <see cref="TcpCallSignal.Event"/> 的已知取值：成员加入（带 <see cref="TcpCallSignal.ParticipantUserId"/>）。
+    /// </summary>
+    public const string SignalEventParticipantJoined = "participant-joined";
+
+    /// <summary>
+    /// <see cref="TcpCallSignal.Event"/> 的已知取值：成员离开（带 <see cref="TcpCallSignal.ParticipantUserId"/>）。
+    /// </summary>
+    public const string SignalEventParticipantLeft = "participant-left";
 }
 
 /// <summary>
@@ -116,6 +137,23 @@ public enum TcpCallEndReason : byte
 }
 
 /// <summary>
+/// 通话种类（群通话阶段一 / Mesh ≤4 人）。
+/// <para>
+/// <see cref="Direct"/>=1 是 1:1 通话既有语义；<see cref="Group"/>=2 是多人（Mesh）通话。
+/// wire 上该字段可缺省（二进制缺席 / JSON null）：缺省即按 <see cref="Direct"/> 处理，
+/// 旧客户端与旧服务端零改动。未知数值（如 99）按 fail-closed 拒绝（<c>call_grant_invalid</c>）。
+/// </para>
+/// </summary>
+public enum TcpCallKind : byte
+{
+    /// <summary>1:1 双人通话（缺省 / 既有语义）。</summary>
+    Direct = 1,
+
+    /// <summary>多人通话（阶段一 Mesh，参与者 ≤ <see cref="TcpCallConstants.MaxGroupCallParticipants"/>）。</summary>
+    Group = 2,
+}
+
+/// <summary>
 /// 通话信令稳定错误码。字符串值即 wire 值，生产端必须原样输出，消费端按表匹配。
 /// </summary>
 public static class TcpCallErrorCode
@@ -164,7 +202,8 @@ public static class TcpCallErrorCode
 /// Server 签发的短期 call grant，作为通话信令状态的授权输入（C2S 携带）。
 /// <para>
 /// 该 grant 是<em>不透明</em>授权凭证：Gateway/Client 不做签名校验，只原样携带；
-/// 校验由 Realtime（<c>ICallGrantVerifier</c>）完成。媒体不共享此字段。
+/// 校验由 Realtime（<c>ICallGrantVerifier</c>）或群组中继（<see cref="TcpCallGrantSignature"/>）完成。
+/// 媒体不共享此字段。
 /// </para>
 /// </summary>
 public sealed class TcpCallGrant
@@ -175,7 +214,8 @@ public sealed class TcpCallGrant
     /// <summary>主叫用户 Id。</summary>
     public long CallerUserId { get; set; }
 
-    /// <summary>被叫用户 Id。</summary>
+    /// <summary>被叫用户 Id。群组（<see cref="CallKind"/>=<see cref="TcpCallKind.Group"/>）恒为 0：
+    /// 旧双人校验端（要求 Callee&gt;0）会 fail-closed 拒绝群组 grant，防止误入 1:1 状态机。</summary>
     public long CalleeUserId { get; set; }
 
     /// <summary>grant 过期时间（Unix 毫秒）。短生命周期，授权输入有界。</summary>
@@ -186,6 +226,18 @@ public sealed class TcpCallGrant
 
     /// <summary>不透明签名/指纹，由 Realtime 校验。</summary>
     public string? Signature { get; set; }
+
+    /// <summary>
+    /// 通话种类。null（wire 缺省）= <see cref="TcpCallKind.Direct"/>，旧客户端/旧服务端零改动。
+    /// </summary>
+    public TcpCallKind? CallKind { get; set; }
+
+    /// <summary>
+    /// 群组通话完整成员名单（含主叫、升序、无重复、
+    /// 2..<see cref="TcpCallConstants.MaxGroupCallParticipants"/> 人）。
+    /// Direct 通话为 null。名单被 <see cref="TcpCallGrantSignature"/> 签名覆盖（防替换/增删攻击）。
+    /// </summary>
+    public IReadOnlyList<long>? Participants { get; set; }
 }
 
 /// <summary>
@@ -252,6 +304,23 @@ public sealed class TcpCallSignal
 
     /// <summary>信令发生时间（Unix 毫秒）。</summary>
     public long OccurredAtMs { get; set; }
+
+    /// <summary>
+    /// 群组/媒体中继信令 kind（string）。1:1 既有语义仍只用 <see cref="Kind"/>，本字段保持 null；
+    /// 群组中继信令在此承载新 kind 词表：
+    /// <c>participant-joined</c> / <see cref="TcpCallConstants.SignalEventParticipantLeft">
+    /// participant-left</see>（均带 <see cref="ParticipantUserId"/>），以及 Mesh 媒体面预留的
+    /// <c>offer</c> / <c>answer</c> / <c>ice</c> / <c>accept</c> / <c>reject</c> / <c>cancel</c> /
+    /// <c>end</c>。
+    /// <b>前向兼容</b>：接收端遇到 unknown 值必须容忍跳过，不得断链或报协议错误。
+    /// </summary>
+    public string? Event { get; set; }
+
+    /// <summary>
+    /// 事件涉及的成员用户 Id（<see cref="Event"/> 为 participant-joined/participant-left 时有值；
+    /// 其余信令为 null）。
+    /// </summary>
+    public long? ParticipantUserId { get; set; }
 }
 
 /// <summary>
