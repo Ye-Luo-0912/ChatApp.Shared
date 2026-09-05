@@ -43,6 +43,11 @@ namespace ChatApp.Shared.Protocol.Tcp;
 ///   HMAC 覆盖全部参与者（<see cref="TcpCallGrantSignature"/>，Direct 载荷与 0.5.6 逐字节一致）。
 ///   <see cref="TcpCallSignal.Event"/> 承载新世代 kind 词表（participant-joined/left、offer/
 ///   answer/ice 等），接收端 unknown 值容忍跳过（前向兼容）。</item>
+///   <item><b>群通话（0.5.8 加性）</b>：<see cref="TcpCallCommandRequest.ParticipantUserId"/>
+///   承载群组逐成员 invite 的目标成员（无状态中继按名单广播、被叫按目标过滤——只有目标成员
+///   应用该 invite 的 offer）；<see cref="TcpCallSignal.Grant"/> 随群组 invite 信令把 grant
+///   下发给被叫（被叫 accept/end 原样携带回中继）。两者缺省（null）= 既有语义，
+///   1:1 与 0.5.7 群组信令零改动。</item>
 /// </list>
 /// </section>
 public static class TcpCallConstants
@@ -270,6 +275,17 @@ public sealed class TcpCallCommandRequest : ITcpRequest
 
     /// <summary>客户端上报发生时间（仅诊断/展示）。</summary>
     public long ClientOccurredAtMs { get; set; }
+
+    /// <summary>
+    /// 群组逐成员 invite 的目标成员（0.5.8 加性，GROUP-CALL-SDP-1）。
+    /// <para>
+    /// 无状态中继按 grant 名单把 invite 广播到全部其余成员，但逐成员 offer 只对目标成员有效；
+    /// 目标 Id 随信令透传后被叫侧过滤——<see cref="TcpCallSignal.ParticipantUserId"/> 非空且
+    /// 非本人的 invite 不建会话、不应用 SDP。仅群组 invite 设置；null = 既有语义
+    /// （1:1 invite 与广播形态零改动）。
+    /// </para>
+    /// </summary>
+    public long? ParticipantUserId { get; set; }
 }
 
 /// <summary>
@@ -318,9 +334,21 @@ public sealed class TcpCallSignal
 
     /// <summary>
     /// 事件涉及的成员用户 Id（<see cref="Event"/> 为 participant-joined/participant-left 时有值；
+    /// 0.5.8 起群组 invite 信令也携带被邀成员 Id——见 <see cref="TcpCallCommandRequest.ParticipantUserId"/>；
     /// 其余信令为 null）。
     /// </summary>
     public long? ParticipantUserId { get; set; }
+
+    /// <summary>
+    /// 随群组 invite 信令下发的 grant（0.5.8 加性，GROUP-CALL-GAP-1）。
+    /// <para>
+    /// 群组被叫的 accept/end 必须原样携带群组 grant 回无状态中继（授权输入），而被叫此前
+    /// 没有任何 grant 获取通道；invite 信令在此携带 Server 签发的群组 grant（签名覆盖
+    /// CallId/参与者名单，完整性与 1:1 语义不受影响）。被叫首次收到群组 invite 时据此建立
+    /// 群组会话并缓存 grant。其余信令为 null（1:1 与既有群组信令零改动）。
+    /// </para>
+    /// </summary>
+    public TcpCallGrant? Grant { get; set; }
 }
 
 /// <summary>

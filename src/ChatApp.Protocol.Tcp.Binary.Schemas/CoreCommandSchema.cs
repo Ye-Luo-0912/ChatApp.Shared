@@ -292,6 +292,8 @@ public static class CoreCommandFieldNumbers
         public const int Grant = 7;
         public const int Sdp = 8;
         public const int ClientOccurredAtMs = 9;
+        // 0.5.8 群通话加性字段：非群组逐成员 invite（null）时不写出，0.5.7 旧解码端零改动。
+        public const int ParticipantUserId = 10;
     }
 
     public static class TcpCallSignal
@@ -307,6 +309,8 @@ public static class CoreCommandFieldNumbers
         // 0.5.7 群通话加性字段：1:1 既有信令不写出，0.5.6 旧解码端零改动。
         public const int Event = 9;
         public const int ParticipantUserId = 10;
+        // 0.5.8 群通话加性字段：非群组 invite 信令（null）时不写出，0.5.7 旧解码端零改动。
+        public const int Grant = 11;
     }
 
     public static class TcpCallCommandResponse
@@ -2262,6 +2266,7 @@ public readonly struct TcpCallGrantSchemaEncoder : IBinaryEncoder<TcpCallGrantSc
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallCommandRequest.Revision, nameof(TcpCallCommandRequest.Revision))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallCommandRequest.Sdp, nameof(TcpCallCommandRequest.Sdp))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallCommandRequest.ClientOccurredAtMs, nameof(TcpCallCommandRequest.ClientOccurredAtMs))]
+[TcpBinaryField(CoreCommandFieldNumbers.TcpCallCommandRequest.ParticipantUserId, nameof(TcpCallCommandRequest.ParticipantUserId))]
 public static partial class TcpCallCommandRequestSchema
 {
     public static BinaryStatus TryEncode(
@@ -2297,11 +2302,19 @@ public readonly struct TcpCallCommandRequestSchemaEncoder : IBinaryEncoder<TcpCa
         }
 
         writer.WriteInt64(CoreCommandFieldNumbers.TcpCallCommandRequest.ClientOccurredAtMs, value.ClientOccurredAtMs);
+
+        // 群通话 0.5.8 加性字段：非群组逐成员 invite（null）不写出，0.5.7 旧解码端零改动。
+        if (value.ParticipantUserId is { } participantUserId)
+        {
+            writer.WriteInt64(CoreCommandFieldNumbers.TcpCallCommandRequest.ParticipantUserId, participantUserId);
+        }
+
         return writer.Status;
     }
 }
 
 [TcpBinaryContract(typeof(TcpCallSignal))]
+[TcpBinaryNestedField(CoreCommandFieldNumbers.TcpCallSignal.Grant, nameof(TcpCallSignal.Grant), typeof(TcpCallGrantSchema))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallSignal.SignalId, nameof(TcpCallSignal.SignalId))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallSignal.CallId, nameof(TcpCallSignal.CallId))]
 [TcpBinaryField(CoreCommandFieldNumbers.TcpCallSignal.FromUserId, nameof(TcpCallSignal.FromUserId))]
@@ -2344,6 +2357,13 @@ public readonly struct TcpCallSignalSchemaEncoder : IBinaryEncoder<TcpCallSignal
         if (value.ParticipantUserId is { } participantUserId)
         {
             writer.WriteInt64(CoreCommandFieldNumbers.TcpCallSignal.ParticipantUserId, participantUserId);
+        }
+
+        // 群通话 0.5.8 加性字段：非群组 invite 信令（null）不写出，0.5.7 旧解码端零改动。
+        if (value.Grant is { } signalGrant)
+        {
+            writer.WriteNested<TcpCallGrantSchemaEncoder, TcpCallGrant>(
+                CoreCommandFieldNumbers.TcpCallSignal.Grant, in signalGrant);
         }
 
         return writer.Status;

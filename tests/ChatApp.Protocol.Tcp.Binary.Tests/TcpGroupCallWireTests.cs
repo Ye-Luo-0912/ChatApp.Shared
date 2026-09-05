@@ -252,6 +252,124 @@ public sealed class TcpGroupCallWireTests
         Assert.Null(actual.ParticipantUserId);
     }
 
+    // ---- 0.5.8 加性字段：逐成员 invite 目标（command）与 invite 随信令下发 grant（signal） ----
+
+    [Fact]
+    public void InviteTargetOnCommandRequestRoundTrips()
+    {
+        var request = new TcpCallCommandRequest
+        {
+            RequestId = "req-target-1",
+            CommandId = "cmd-target-1",
+            CallId = "call-group-1",
+            Type = TcpCallCommandType.Invite,
+            ActorUserId = 42,
+            Revision = 3,
+            ParticipantUserId = 44
+        };
+
+        TcpBinaryWireDecode result = TcpBinaryWireCodec.TryDecode(
+            PacketCommand.CallCommandRequest,
+            Encode(in request, TcpCallCommandRequestSchema.TryEncode, Limits),
+            Limits);
+
+        Assert.Equal(TcpBinaryWireStatus.Decoded, result.Status);
+        Assert.Equal(44, Assert.IsType<TcpCallCommandRequest>(result.Value).ParticipantUserId);
+    }
+
+    [Fact]
+    public void CommandRequestWithoutInviteTargetEncodesWithoutNewField()
+    {
+        // 1:1 / 广播形态（目标 null）与 0.5.7 逐字节一致：decode 侧 ParticipantUserId 保持 null。
+        var request = new TcpCallCommandRequest
+        {
+            RequestId = "req-1",
+            CommandId = "cmd-1",
+            CallId = "call-1",
+            Type = TcpCallCommandType.Accept,
+            ActorUserId = 7,
+            Revision = 1
+        };
+
+        TcpBinaryWireDecode result = TcpBinaryWireCodec.TryDecode(
+            PacketCommand.CallCommandRequest,
+            Encode(in request, TcpCallCommandRequestSchema.TryEncode, Limits),
+            Limits);
+
+        Assert.Equal(TcpBinaryWireStatus.Decoded, result.Status);
+        Assert.Null(Assert.IsType<TcpCallCommandRequest>(result.Value).ParticipantUserId);
+    }
+
+    [Fact]
+    public void SignalWithGrantRoundTripsThroughRegistryDispatch()
+    {
+        var signal = new TcpCallSignal
+        {
+            SignalId = "sig-invite-1",
+            CallId = "call-group-1",
+            FromUserId = 42,
+            ToUserId = 44,
+            Kind = TcpCallCommandType.Invite,
+            Sdp = "v=0\r\noffer-for-44",
+            Revision = 1,
+            OccurredAtMs = 1_700_000_030_000,
+            ParticipantUserId = 44,
+            Grant = new TcpCallGrant
+            {
+                CallId = "call-group-1",
+                CallerUserId = 42,
+                CalleeUserId = 0,
+                ExpiresAtMs = 1_700_000_090_000,
+                Nonce = "nonce-group-1",
+                Signature = "sig-group",
+                CallKind = TcpCallKind.Group,
+                Participants = [42, 43, 44]
+            }
+        };
+
+        TcpBinaryWireDecode result = TcpBinaryWireCodec.TryDecode(
+            PacketCommand.CallSignal,
+            Encode(in signal, TcpCallSignalSchema.TryEncode, Limits),
+            Limits);
+
+        Assert.Equal(TcpBinaryWireStatus.Decoded, result.Status);
+        var actual = Assert.IsType<TcpCallSignal>(result.Value);
+        Assert.Equal(44, actual.ParticipantUserId);
+        Assert.NotNull(actual.Grant);
+        Assert.Equal(TcpCallKind.Group, actual.Grant.CallKind);
+        Assert.Equal(new long[] { 42, 43, 44 }, actual.Grant.Participants);
+        Assert.Equal("sig-group", actual.Grant.Signature);
+    }
+
+    [Fact]
+    public void SignalWithoutGrantEncodesWithoutNewField()
+    {
+        // participant-left 事件信令（0.5.7 形态）不写出 field 11：decode 侧 Grant 保持 null。
+        var signal = new TcpCallSignal
+        {
+            SignalId = "sig-left-1",
+            CallId = "call-group-1",
+            FromUserId = 43,
+            ToUserId = 42,
+            Kind = TcpCallCommandType.End,
+            Sdp = string.Empty,
+            Revision = 2,
+            OccurredAtMs = 1_700_000_030_000,
+            Event = TcpCallConstants.SignalEventParticipantLeft,
+            ParticipantUserId = 43
+        };
+
+        TcpBinaryWireDecode result = TcpBinaryWireCodec.TryDecode(
+            PacketCommand.CallSignal,
+            Encode(in signal, TcpCallSignalSchema.TryEncode, Limits),
+            Limits);
+
+        Assert.Equal(TcpBinaryWireStatus.Decoded, result.Status);
+        var actual = Assert.IsType<TcpCallSignal>(result.Value);
+        Assert.Equal(TcpCallConstants.SignalEventParticipantLeft, actual.Event);
+        Assert.Null(actual.Grant);
+    }
+
     private static byte[] Encode<T>(
         in T value,
         EncodeDelegate<T> encode,

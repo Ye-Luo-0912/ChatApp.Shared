@@ -145,6 +145,103 @@ public sealed class TcpGroupCallContractTests
         Assert.Equal(9, signal.ParticipantUserId);
     }
 
+    // ---- 0.5.8 加性字段：逐成员 invite 目标（command）与 invite 随信令下发 grant（signal） ----
+
+    [Fact]
+    public void InviteTargetOnCommandRequestSerializesAndRoundTrips()
+    {
+        var value = new TcpCallCommandRequest
+        {
+            RequestId = "call-01",
+            CommandId = "cmd-1",
+            CallId = "call-group-1",
+            Type = TcpCallCommandType.Invite,
+            ActorUserId = 42,
+            Revision = 1,
+            ParticipantUserId = 44
+        };
+
+        var json = JsonSerializer.Serialize(value, JsonContext.TcpCallCommandRequest);
+        Assert.Contains("\"participantUserId\":44", json, StringComparison.Ordinal);
+
+        var roundTrip = JsonSerializer.Deserialize(json, JsonContext.TcpCallCommandRequest);
+        Assert.NotNull(roundTrip);
+        Assert.Equal(44, roundTrip.ParticipantUserId);
+    }
+
+    [Fact]
+    public void CommandRequestWithoutInviteTargetOmitsNewField()
+    {
+        // 1:1 / 广播形态（目标 null）不写出新字段 → wire 与 0.5.7 逐字节一致。
+        var value = new TcpCallCommandRequest
+        {
+            RequestId = "call-01",
+            CommandId = "cmd-1",
+            CallId = "call-abc",
+            Type = TcpCallCommandType.Reject,
+            ActorUserId = 7,
+            Revision = 2
+        };
+
+        const string expected =
+            """{"requestId":"call-01","commandId":"cmd-1","callId":"call-abc","type":4,"actorUserId":7,"revision":2,"clientOccurredAtMs":0}""";
+
+        Assert.Equal(expected, JsonSerializer.Serialize(value, JsonContext.TcpCallCommandRequest));
+    }
+
+    [Fact]
+    public void SignalWithGrantSerializesAndRoundTrips()
+    {
+        var signal = new TcpCallSignal
+        {
+            SignalId = "sig-invite-1",
+            CallId = "call-group-1",
+            FromUserId = 42,
+            ToUserId = 44,
+            Kind = TcpCallCommandType.Invite,
+            Sdp = "v=0",
+            Revision = 1,
+            OccurredAtMs = NowMs,
+            ParticipantUserId = 44,
+            Grant = GroupGrant()
+        };
+
+        var json = JsonSerializer.Serialize(signal, JsonContext.TcpCallSignal);
+        Assert.Contains("\"participantUserId\":44", json, StringComparison.Ordinal);
+        Assert.Contains("\"grant\":{", json, StringComparison.Ordinal);
+        Assert.Contains("\"callKind\":2", json, StringComparison.Ordinal);
+
+        var roundTrip = JsonSerializer.Deserialize(json, JsonContext.TcpCallSignal);
+        Assert.NotNull(roundTrip);
+        Assert.Equal(44, roundTrip.ParticipantUserId);
+        Assert.NotNull(roundTrip.Grant);
+        Assert.Equal(TcpCallKind.Group, roundTrip.Grant.CallKind);
+        Assert.Equal(new long[] { 42, 43, 44 }, roundTrip.Grant.Participants);
+        Assert.Equal("call-group-1", roundTrip.Grant.CallId);
+    }
+
+    [Fact]
+    public void SignalWithoutGrantOmitsNewField()
+    {
+        // 0.5.7 形态（participant-left 事件信令）不写出 grant → LegacySignalJsonIsUnchanged 红线保持。
+        var signal = new TcpCallSignal
+        {
+            SignalId = "sig-left-1",
+            CallId = "call-group-1",
+            FromUserId = 43,
+            ToUserId = 42,
+            Kind = TcpCallCommandType.End,
+            Sdp = string.Empty,
+            Revision = 2,
+            OccurredAtMs = NowMs,
+            Event = TcpCallConstants.SignalEventParticipantLeft,
+            ParticipantUserId = 43
+        };
+
+        var json = JsonSerializer.Serialize(signal, JsonContext.TcpCallSignal);
+        Assert.DoesNotContain("\"grant\"", json, StringComparison.Ordinal);
+    }
+
     // ---- canonical payload / HMAC ----
 
     [Fact]
